@@ -1,0 +1,20 @@
+stages:
+  - test
+
+laravel_tests:
+  stage: test
+  image: php:8.3
+
+  before_script:
+    - apt-get update && apt-get install -y git unzip libzip-dev
+    - docker-php-ext-install pdo_mysql zip
+
+    - curl -sS https://getcomposer.org/installer | php
+    - mv composer.phar /usr/local/bin/composer
+
+    - composer install
+
+  script:
+    - cp .env.example .env
+    - php artisan key:generate
+    - php artisan test
