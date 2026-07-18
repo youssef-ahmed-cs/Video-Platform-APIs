@@ -1,19 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Password Reset OTP</title>
-</head>
-<body>
-<h2>Password Reset Request</h2>
+<x-mail::message>
+    # Password Reset Request
 
-<p>Your OTP code is:</p>
+    You requested to reset your password.
 
-<h1 style="letter-spacing: 5px; color: #2d3748;">
-    {{ $otp }}
-</h1>
+    ## OTP Code
 
-<p>This code will expire in 5 minutes.</p>
+    # {{ $otp }}
 
-<p>If you did not request this, ignore this email.</p>
-</body>
-</html>
+    This code will expire in **5 minutes**.
+
+    If you did not request a password reset, you can safely ignore this email.
+
+    Thanks,<br>
+    {{ config('app.name') }}
+</x-mail::message>

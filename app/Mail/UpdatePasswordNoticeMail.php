@@ -8,31 +8,28 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class ForgetPassOtpMail extends Mailable
+class UpdatePasswordNoticeMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    protected $otp;
+    public $user;
 
-    public function __construct($otp)
+    public function __construct($user)
     {
-        $this->otp = $otp;
+        $this->user = $user;
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Forget Password Otp',
+            subject: 'Update Password Notice',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.forget-pass-otp',
-            with: [
-                'otp' => $this->otp,
-            ]
+            markdown: 'emails.update-password-notice',
         );
     }
 

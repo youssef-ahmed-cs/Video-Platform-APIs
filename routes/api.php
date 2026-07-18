@@ -30,7 +30,13 @@ Route::prefix('v1')->middleware('throttle:20,1')->group(function () {
         });
 
         Route::controller(ProfileController::class)->group(function () {
+            Route::get('/profile', 'show');
             Route::post('upload-avatar', 'uploadAvatarImage');
+            Route::delete('delete-avatar', 'removeAvatarImage');
+            Route::patch('update/profile', 'update');
+            Route::delete('delete/profile', 'deleteProfilePermanently');
+            Route::post('profile/change-password', 'updatePassword');
         });
+
     });
 });

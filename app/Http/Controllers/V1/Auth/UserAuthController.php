@@ -5,12 +5,14 @@ namespace App\Http\Controllers\V1\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterUserRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\WelcomeEmailMail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-class UserAuthController extends Controller 
+class UserAuthController extends Controller
 {
     public function register(RegisterUserRequest $request)
     {
@@ -19,11 +21,13 @@ class UserAuthController extends Controller
             'name' => $registerUserData['name'],
             'email' => $registerUserData['email'],
             'password' => Hash::make($registerUserData['password']),
-            'username' => $registerUserData['username'] ?? Str::before('@', $registerUserData['email']).Str::random(5),
+            'username' => $registerUserData['username'] ?? Str::before($registerUserData['email'], '@') . '-' . random_int(1000, 9999),
         ]);
 
         $token = $user->createToken($user->name . '-AuthToken')->plainTextToken;
         Log::info('User registered: ' . $user->email);
+
+        Mail::to($user->email)->send(new WelcomeEmailMail($user));
 
         return response()->json([
             'message' => 'User Created Successfully!',

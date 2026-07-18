@@ -9,7 +9,15 @@ class ImageUploadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'avatar' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:10240'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'avatar.max' => 'The avatar file may not be greater than 10240 kilobytes.',
+            'avatar.mimes' => 'The avatar must be a file of type: jpeg, jpg, png.'
         ];
     }
 

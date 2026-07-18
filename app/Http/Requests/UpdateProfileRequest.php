@@ -23,10 +23,19 @@ class UpdateProfileRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . auth()->id(),
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,' . auth()->id(),
             'username' => 'nullable|string|max:255|unique:users,username,' . auth()->id(),
             'bio' => 'nullable|string|max:500',
+            'avatar' => ['nullable', 'file', 'mimes:jpeg,jpg,png', 'max:10240'], // max 10MB
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'avatar.max' => 'The avatar file may not be greater than 10240 kilobytes.',
+            'avatar.mimes' => 'The avatar must be a file of type: jpeg, jpg, png.'
         ];
     }
 }
