@@ -3,7 +3,7 @@ stages:
 
 laravel_tests:
   stage: test
-  image: php:8.3
+  image: php:8.4-cli
 
   before_script:
     - apt-get update && apt-get install -y git unzip libzip-dev
@@ -12,9 +12,8 @@ laravel_tests:
     - curl -sS https://getcomposer.org/installer | php
     - mv composer.phar /usr/local/bin/composer
 
-    - composer install
-
   script:
+    - composer install
     - cp .env.example .env
     - php artisan key:generate
     - php artisan test
