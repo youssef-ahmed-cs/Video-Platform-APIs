@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -25,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
                 ->mixedCase()
                 ->uncompromised()
                 ->numbers()->letters();
+        });
+
+        Gate::define('restore-user', function ($user) {
+            return $user->is_admin === true;
         });
     }
 }

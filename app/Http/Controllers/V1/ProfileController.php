@@ -1,14 +1,16 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\V1;
 
-use App\Http\Requests\UpdatePasswordRequest;
-use App\Mail\UpdatePasswordNoticeMail;
-use Illuminate\Http\Request;
-use App\Services\HackCDNStorage;
-use App\Http\Resources\UserResource;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\ImageUploadRequest;
+use App\Http\Requests\UpdatePasswordRequest;
 use App\Http\Requests\UpdateProfileRequest;
+use App\Http\Resources\UserResource;
+use App\Mail\UpdatePasswordNoticeMail;
+use App\Models\User;
+use App\Services\HackCDNStorage;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -99,6 +101,44 @@ class ProfileController extends Controller
 
         return response()->json([
             'message' => 'Account deleted successfully!'
+        ]);
+    }
+
+    public function softDeleteProfile(HackCDNStorage $hackCdnStorage)
+    {
+        $authuser = auth()->user();
+
+        if ($authuser->avatar_url) {
+            $hackCdnStorage->deleteUpload($authuser->avatar_url);
+        }
+
+        $authuser->tokens()->delete();
+        $authuser->delete();
+
+
+        return response()->json([
+            'message' => 'Account deleted successfully!'
+        ]);
+    }
+
+    public function restore(User $user) // admin only can restore accounts!
+    {
+        if (!Gate::allows('restore-user', $user)) {
+            return response()->json([
+                'error' => 'You do not have permission to restore this user'
+            ], 403);
+        }
+
+        if (!$user->trashed()) {
+            return response()->json([
+                'message' => 'Account is not deleted.'
+            ], 400);
+        }
+
+        $user->restore();
+
+        return response()->json([
+            'message' => 'Account restored successfully!'
         ]);
     }
 
