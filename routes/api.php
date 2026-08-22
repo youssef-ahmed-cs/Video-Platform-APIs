@@ -5,48 +5,15 @@ use App\Http\Controllers\V1\Auth\UserAuthController;
 use App\Http\Controllers\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\V1\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Mail\InvoicePaidMail;
 
 Route::prefix('v1')->middleware('throttle:20,1')->group(function () {
 
     Route::get('/', function () {
         return response()->json([
-            'message' => 'Test API V1.0',
-            'status' => 'OK - Servre works'
+            'message' => 'Welcome to the API',
+            'status' => 'OK - Server works'
         ]);
-    });
-
-    Route::middleware('throttle:3,1')->controller(VerifyEmailController::class)->group(function () {
-        Route::post('/email/otp/send', 'sendOtp');
-        Route::post('/email/otp/verify', 'verifyOtp');
-    });
-
-    Route::middleware('throttle:5,1')->controller(ForgetPasswordController::class)->group(function () {
-        Route::post('/forgot-password', 'sendOtp');
-        Route::post('/verify-password', 'verifyOtp');
-        Route::post('/reset-password', 'resetPassword');
-    });
-
-    Route::post('register', [UserAuthController::class, 'register']);
-    Route::post('login', [UserAuthController::class, 'login']);
-
-    Route::middleware(['auth:sanctum', 'verified'])->group(function () {
-        Route::controller(UserAuthController::class)->group(function () {
-            Route::post('/logout', 'logout');
-            Route::get('/me', 'user');
-            Route::post('/refresh', 'refreshToken');
-        });
-
-        Route::controller(ProfileController::class)->group(function () {
-            Route::get('/profile', 'show');
-            Route::post('/profile/upload-avatar', 'uploadAvatarImage');
-            Route::delete('/profile/delete-avatar', 'removeAvatarImage');
-            Route::patch('/profile', 'update');
-            Route::delete('/profile/force-delete', 'deleteProfilePermanently');
-            Route::delete('/profile/soft-delete', 'softDeleteProfile');
-            Route::post('/profile/{id}/restore', 'restore');
-            Route::post('/profile/change-password', 'updatePassword');
-        });
-
     });
 });
 
@@ -57,7 +24,7 @@ Route::post('uplod-on-azure', function (\App\Services\AzureBlobStorageService $a
         return response()->json(['error' => 'No file provided'], 400);
     }
 
-    $filePath = $azureService->uploadImage($file, 'myfiles');
+    $filePath = $azureService->uploadImage($file, 'home');
 
     if (!$filePath) {
         return response()->json(['error' => 'Failed to upload file to Azure Blobs'], 500);
@@ -68,3 +35,7 @@ Route::post('uplod-on-azure', function (\App\Services\AzureBlobStorageService $a
         'message' => 'File uploaded successfully to Azure Blobs',
     ]);
 });
+
+require __DIR__ . '/API/auth.php';
+require __DIR__ . '/API/profile.php';
+require __DIR__ . '/API/videos.php';

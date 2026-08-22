@@ -25,9 +25,7 @@ class UserAuthController extends Controller
         ]);
 
         $token = $user->createToken($user->name . '-AuthToken')->plainTextToken;
-        Log::info('User registered: ' . $user->email);
-
-        Mail::to($user->email)->send(new WelcomeEmailMail($user));
+        Log::info('New user registered: ' . $user->email);
 
         return response()->json([
             'message' => 'User Created Successfully!',
@@ -46,7 +44,7 @@ class UserAuthController extends Controller
         $user = User::where('email', $loginUserData['email'])->first();
         if (!$user || !Hash::check($loginUserData['password'], $user->password)) {
             return response()->json([
-                'message' => 'Invalid Credentials'
+                'message' => 'Invalid Credentials if you forget your password use forget password endpoint!',
             ], 401);
         }
 

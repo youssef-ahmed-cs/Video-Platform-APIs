@@ -19,9 +19,9 @@ class UserResource extends JsonResource
             'bio' => $this->bio,
             'is_admin' => $this->is_admin,
             'avatar_url' => $this->avatar_url,
-            'email_verified_at' => $this->email_verified_at,
-            'created_at' => $this->created_at->diffForHumans(),
-            'updated_at' => $this->updated_at->diffForHumans(),
+            'email_verified_at' => $this->email_verified_at?->format('Y-m-d H:i:s'),
+            'created_at' => $this->created_at?->diffForHumans(),
+            'updated_at' => $this->updated_at?->diffForHumans(),
         ];
     }
 }

@@ -15,7 +15,7 @@ class ForgetPasswordController extends Controller
 {
     public function sendOtp(Request $request)
     {
-        $request->validate(['email' => 'required|email|exists:users,email']);
+        $request->validate(['email' => 'required|email|exists:users,email|email:dns,rfc']);
 
         $otp = rand(100000, 999999);
 
@@ -31,7 +31,7 @@ class ForgetPasswordController extends Controller
     public function verifyOtp(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email|exists:users,email|email:dns,rfc',
             'otp' => 'required|digits:6',
         ]);
 
@@ -48,7 +48,7 @@ class ForgetPasswordController extends Controller
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email|exists:users,email|email:dns,rfc',
             'password' => ['required', Password::defaults(),'confirmed'],
         ]);
 

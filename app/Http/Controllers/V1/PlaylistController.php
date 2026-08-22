@@ -1,0 +1,153 @@
+<?php
+
+namespace App\Http\Controllers\V1;
+
+use App\Http\Controllers\Controller;
+use App\Models\Playlist;
+use App\Models\Video;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+
+class PlaylistController extends Controller
+{
+    public function index()
+    {
+        $playlists = Playlist::with(['videos:id,title', 'user:id,name,username'])
+            ->where(function ($query) {
+                $query->where('is_public', true)
+                    ->orWhere('user_id', auth()->id());
+            })
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'playlists' => $playlists,
+        ]);
+    }
+
+    public function show(Playlist $playlist)
+    {
+        if (! $playlist->is_public && auth()->id() !== $playlist->user_id) {
+            return response()->json(['message' => 'This playlist is private.'], 403);
+        }
+
+        $playlist->load(['videos' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()), 'user:id,name,username']);
+
+        return response()->json([
+            'playlist' => $playlist,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'is_public' => ['nullable', 'boolean'],
+        ]);
+
+        $playlist = Playlist::create([
+            'user_id' => auth()->id(),
+            'name' => $validated['name'],
+            'slug' => $this->generateUniqueSlug($validated['name']),
+            'description' => $validated['description'] ?? null,
+            'is_public' => $validated['is_public'] ?? true,
+        ]);
+
+        return response()->json([
+            'message' => 'Playlist created successfully.',
+            'playlist' => $playlist,
+        ], 201);
+    }
+
+    public function update(Request $request, Playlist $playlist)
+    {
+        if ($playlist->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'is_public' => ['sometimes', 'boolean'],
+        ]);
+
+        if (isset($validated['name'])) {
+            $validated['slug'] = $this->generateUniqueSlug($validated['name'], $playlist->id);
+        }
+
+        $playlist->fill($validated);
+        $playlist->save();
+
+        return response()->json([
+            'message' => 'Playlist updated successfully.',
+            'playlist' => $playlist,
+        ]);
+    }
+
+    public function destroy(Playlist $playlist)
+    {
+        if ($playlist->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $playlist->delete();
+
+        return response()->json([
+            'message' => 'Playlist removed successfully.',
+        ]);
+    }
+
+    public function addVideo(Request $request, Playlist $playlist)
+    {
+        if ($playlist->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'video_id' => ['required', 'integer', 'exists:videos,id'],
+        ]);
+
+        $video = Video::findOrFail($validated['video_id']);
+        if ($video->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Only your own videos can be added to a playlist.'], 403);
+        }
+
+        $playlist->videos()->syncWithoutDetaching([$video->id]);
+
+        return response()->json([
+            'message' => 'Video added to playlist.',
+            'playlist' => $playlist->fresh(['videos']),
+        ]);
+    }
+
+    public function removeVideo(Playlist $playlist, Video $video)
+    {
+        if ($playlist->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $playlist->videos()->detach($video->id);
+
+        return response()->json([
+            'message' => 'Video removed from playlist.',
+            'playlist' => $playlist->fresh(['videos']),
+        ]);
+    }
+
+    protected function generateUniqueSlug(string $name, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($name) ?: 'playlist';
+        $slug = $base;
+        $counter = 1;
+
+        while (Playlist::where('slug', $slug)
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->exists()) {
+            $slug = $base.'-'.$counter;
+            $counter++;
+        }
+
+        return $slug;
+    }
+}
