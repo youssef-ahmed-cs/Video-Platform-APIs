@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PlaylistResource;
 use App\Models\Playlist;
 use App\Models\Video;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class PlaylistController extends Controller
             ->get();
 
         return response()->json([
-            'playlists' => $playlists,
+            'playlists' => PlaylistResource::collection($playlists),
         ]);
     }
 
@@ -34,7 +35,7 @@ class PlaylistController extends Controller
         $playlist->load(['videos' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()), 'user:id,name,username']);
 
         return response()->json([
-            'playlist' => $playlist,
+            'playlist' => new PlaylistResource($playlist),
         ]);
     }
 
@@ -56,7 +57,7 @@ class PlaylistController extends Controller
 
         return response()->json([
             'message' => 'Playlist created successfully.',
-            'playlist' => $playlist,
+            'playlist' => new PlaylistResource($playlist),
         ], 201);
     }
 
@@ -81,7 +82,7 @@ class PlaylistController extends Controller
 
         return response()->json([
             'message' => 'Playlist updated successfully.',
-            'playlist' => $playlist,
+            'playlist' => new PlaylistResource($playlist),
         ]);
     }
 
@@ -117,7 +118,7 @@ class PlaylistController extends Controller
 
         return response()->json([
             'message' => 'Video added to playlist.',
-            'playlist' => $playlist->fresh(['videos']),
+            'playlist' => new PlaylistResource($playlist->fresh(['videos'])),
         ]);
     }
 
@@ -131,7 +132,7 @@ class PlaylistController extends Controller
 
         return response()->json([
             'message' => 'Video removed from playlist.',
-            'playlist' => $playlist->fresh(['videos']),
+            'playlist' => new PlaylistResource($playlist->fresh(['videos'])),
         ]);
     }
 
@@ -147,7 +148,6 @@ class PlaylistController extends Controller
             $slug = $base.'-'.$counter;
             $counter++;
         }
-
         return $slug;
     }
 }

@@ -9,12 +9,12 @@ use App\Mail\InvoicePaidMail;
 
 Route::prefix('v1')->middleware('throttle:20,1')->group(function () {
 
-    Route::middleware('throttle:3,1')->controller(VerifyEmailController::class)->group(function () {
+    Route::middleware('throttle:10,1')->controller(VerifyEmailController::class)->group(function () {
         Route::post('/email/otp/send', 'sendOtp');
         Route::post('/email/otp/verify', 'verifyOtp');
     });
 
-    Route::middleware('throttle:5,1')->controller(ForgetPasswordController::class)->group(function () {
+    Route::middleware('throttle:10,1')->controller(ForgetPasswordController::class)->group(function () {
         Route::post('/forgot-password', 'sendOtp');
         Route::post('/verify-password', 'verifyOtp');
         Route::post('/reset-password', 'resetPassword');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\VideoResource;
 use App\Models\Video;
 use App\Services\VideoCDNStorage;
 use Illuminate\Http\Request;
@@ -25,7 +26,7 @@ class VideoController extends Controller
             ->get();
 
         return response()->json([
-            'videos' => $videos,
+            'videos' => VideoResource::collection($videos),
         ]);
     }
 
@@ -37,7 +38,7 @@ class VideoController extends Controller
             ->get();
 
         return response()->json([
-            'videos' => $videos,
+            'videos' => VideoResource::collection($videos),
         ]);
     }
 
@@ -50,7 +51,7 @@ class VideoController extends Controller
         $video->load(['user:id,name,username', 'categories:id,name']);
 
         return response()->json([
-            'video' => $video,
+            'video' => new VideoResource($video),
         ]);
     }
 
@@ -101,16 +102,12 @@ class VideoController extends Controller
 
         return response()->json([
             'message' => 'Video uploaded successfully.',
-            'video' => $video,
+            'video' => new VideoResource($video),
         ], 201);
     }
 
     public function update(Request $request, Video $video)
     {
-        if ($video->user_id !== auth()->id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
         $validated = $request->validate([
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -134,16 +131,12 @@ class VideoController extends Controller
 
         return response()->json([
             'message' => 'Video updated successfully.',
-            'video' => $video,
+            'video' => new VideoResource($video),
         ]);
     }
 
     public function destroy(Video $video, VideoCDNStorage $videoCdnStorage)
     {
-        if ($video->user_id !== auth()->id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
         if ($video->video_url) {
             $videoCdnStorage->deleteUpload($video->video_url);
         }
@@ -190,35 +183,4 @@ class VideoController extends Controller
         return $slug;
     }
 
-    protected function storageDisk(): string
-    {
-        $configuredDisk = config('filesystems.video_disk');
-
-        if (is_string($configuredDisk) && in_array($configuredDisk, ['azure', 'public', 'local'], true)) {
-            return $configuredDisk;
-        }
-
-        $azureConfigured = ! empty(config('filesystems.disks.azure.connection_string'))
-            || (! empty(config('filesystems.disks.azure.name')) && ! empty(config('filesystems.disks.azure.key')));
-
-        return $azureConfigured ? 'azure' : 'public';
-    }
-
-    protected function storeFile($file, string $folder, string $disk): string
-    {
-        $fileName = $this->createStorageFilename($file, $folder);
-
-        Storage::disk($disk)->putFileAs($folder, $file, $fileName, [
-            'Content-Type' => $file->getClientMimeType(),
-        ]);
-
-        return $folder.'/'.$fileName;
-    }
-
-    protected function createStorageFilename($file, string $folder): string
-    {
-        $extension = $file->getClientOriginalExtension();
-
-        return uniqid('video_', true).'.'.($extension ?: 'bin');
-    }
 }

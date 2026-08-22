@@ -13,6 +13,5 @@ class AuthObserver
     {
         Log::info('New user registered: ' . $user->email);
         Mail::to($user->email)->send(new WelcomeEmailMail($user));
-        Log::emergency();
     }
 }

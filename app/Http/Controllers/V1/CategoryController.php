@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CategoryResource;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -17,16 +18,16 @@ class CategoryController extends Controller
             ->get();
 
         return response()->json([
-            'categories' => $categories,
+            'categories' => CategoryResource::collection($categories),
         ]);
     }
 
     public function show(Category $category)
     {
-        $category->load(['videos' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id())]);
+        $category->load(['videos' => fn($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id())]);
 
         return response()->json([
-            'category' => $category,
+            'category' => new CategoryResource($category),
         ]);
     }
 
@@ -46,7 +47,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Category created successfully.',
-            'category' => $category,
+            'category' => new CategoryResource($category),
         ], 201);
     }
 
@@ -70,7 +71,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Category updated successfully.',
-            'category' => $category,
+            'category' => new CategoryResource($category),
         ]);
     }
 
@@ -84,6 +85,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Category removed successfully.',
+            'category' => new CategoryResource($category),
         ]);
     }
 
@@ -94,9 +96,9 @@ class CategoryController extends Controller
         $counter = 1;
 
         while (Category::where('slug', $slug)
-            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->when($ignoreId, fn($query) => $query->whereKeyNot($ignoreId))
             ->exists()) {
-            $slug = $base.'-'.$counter;
+            $slug = $base . '-' . $counter;
             $counter++;
         }
 

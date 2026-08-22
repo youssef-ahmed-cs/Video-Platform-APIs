@@ -18,6 +18,9 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/my-videos', [VideoController::class, 'myVideos']);
+    });
+
+    Route::middleware(['auth:sanctum', 'can:manage-videos'])->group(function () {
         Route::post('/videos', [VideoController::class, 'store']);
         Route::patch('/videos/{video}', [VideoController::class, 'update']);
         Route::delete('/videos/{video}', [VideoController::class, 'destroy']);

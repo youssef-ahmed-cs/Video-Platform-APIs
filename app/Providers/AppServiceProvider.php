@@ -31,5 +31,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('restore-user', function ($user) {
             return $user->is_admin === true;
         });
+
+        Gate::define('manage-videos', function ($user) {
+            return $user->is_admin === true;
+        });
     }
 }
