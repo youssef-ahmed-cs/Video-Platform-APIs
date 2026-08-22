@@ -7,9 +7,19 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
-class HackCDNStorage
+class VideoCDNStorage
 {
+    public function uploadVideo($file, $path, ?string $userName = null): string
+    {
+        return $this->uploadFile($file, $path, $userName);
+    }
+
     public function uploadImage($file, $path, ?string $userName = null): string
+    {
+        return $this->uploadFile($file, $path, $userName);
+    }
+
+    private function uploadFile($file, $path, ?string $userName = null): string
     {
         if (!$file instanceof UploadedFile) {
             throw new RuntimeException('A valid uploaded file is required.');
@@ -33,7 +43,7 @@ class HackCDNStorage
         $url = $response->json('url');
 
         if (!is_string($url) || $url === '') {
-            Log::error('HackCDNStorage: Invalid response from Hack Club CDN', [
+            Log::error('VideoCDNStorage: Invalid response from Hack Club CDN', [
                 'response' => $response->json(),
             ]);
             throw new RuntimeException('Hack Club CDN did not return a valid public URL.');
@@ -152,7 +162,7 @@ class HackCDNStorage
         $key = trim((string)config('services.hackcdn.key'));
 
         if ($key === '') {
-            Log::error('HackCDNStorage: API key is not configured');
+            Log::error('VideoCDNStorage: API key is not configured');
         }
 
         return $key;
@@ -166,6 +176,6 @@ class HackCDNStorage
             return $error;
         }
 
-        return 'Hack Club CDN request failed.';
+        return 'Video Club CDN request failed.';
     }
 }

@@ -9,7 +9,7 @@ use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Mail\UpdatePasswordNoticeMail;
 use App\Models\User;
-use App\Services\HackCDNStorage;
+use App\Services\VideoCDNStorage;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Mail;
 
 class ProfileController extends Controller
 {
-    public function uploadAvatarImage(ImageUploadRequest $request, HackCDNStorage $hackCdnStorage)
+    public function uploadAvatarImage(ImageUploadRequest $request, VideoCDNStorage $hackCdnStorage)
     {
         $file = request()->file('file');
 
@@ -47,7 +47,7 @@ class ProfileController extends Controller
         return response()->json(['user' => new UserResource($user)]);
     }
 
-    public function removeAvatarImage(HackCDNStorage $hackCdnStorage)
+    public function removeAvatarImage(VideoCDNStorage $hackCdnStorage)
     {
         $authuser = auth()->user();
 
@@ -64,7 +64,7 @@ class ProfileController extends Controller
 
     }
 
-    public function update(UpdateProfileRequest $request, HackCDNStorage $hackCdnStorage)
+    public function update(UpdateProfileRequest $request, VideoCDNStorage $hackCdnStorage)
     {
         $authuser = auth()->user();
         $data = $request->validated();
@@ -87,7 +87,7 @@ class ProfileController extends Controller
 
     }
 
-    public function deleteProfilePermanently(HackCDNStorage $hackCdnStorage)
+    public function deleteProfilePermanently(VideoCDNStorage $hackCdnStorage)
     {
         $authuser = auth()->user();
 
@@ -104,7 +104,7 @@ class ProfileController extends Controller
         ]);
     }
 
-    public function softDeleteProfile(HackCDNStorage $hackCdnStorage)
+    public function softDeleteProfile(VideoCDNStorage $hackCdnStorage)
     {
         $authuser = auth()->user();
 

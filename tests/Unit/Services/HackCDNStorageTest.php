@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Services;
 
-use App\Services\HackCDNStorage;
+use App\Services\VideoCDNStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -28,7 +28,7 @@ class HackCDNStorageTest extends TestCase
             true
         );
 
-        $service = new HackCDNStorage();
+        $service = new VideoCDNStorage();
         $url = $service->uploadImage($file, 'avatar', 'Youssef Ahmed');
 
         $this->assertSame('https://cdn.hackclub.com/abc123/photo.jpg', $url);
@@ -55,7 +55,7 @@ class HackCDNStorageTest extends TestCase
             ], 200),
         ]);
 
-        $service = new HackCDNStorage();
+        $service = new VideoCDNStorage();
         $result = $service->deleteUpload('https://cdn.hackclub.com/01234567-89ab-cdef-0123-456789abcdef/photo.jpg');
 
         $this->assertTrue($result['deleted']);

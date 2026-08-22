@@ -4,10 +4,9 @@ namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Video;
+use App\Services\VideoCDNStorage;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 class VideoController extends Controller
 {
@@ -55,7 +54,7 @@ class VideoController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, VideoCDNStorage $videoCdnStorage)
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -67,15 +66,14 @@ class VideoController extends Controller
             'is_public' => ['nullable', 'boolean'],
         ]);
 
-        $disk = $this->storageDisk();
         $videoFile = $request->file('video');
-        $videoPath = $this->storeFile($videoFile, 'videos', $disk);
+        $videoUrl = $videoCdnStorage->uploadVideo($videoFile, 'videos', auth()->user()?->name);
 
         $thumbnailPath = null;
         $thumbnailUrl = null;
         if ($request->hasFile('thumbnail')) {
-            $thumbnailPath = $this->storeFile($request->file('thumbnail'), 'video-thumbnails', $disk);
-            $thumbnailUrl = Storage::disk($disk)->url($thumbnailPath);
+            $thumbnailUrl = $videoCdnStorage->uploadImage($request->file('thumbnail'), 'video-thumbnails', auth()->user()?->name);
+            $thumbnailPath = basename(parse_url($thumbnailUrl, PHP_URL_PATH) ?: $thumbnailUrl);
         }
 
         $slug = $this->generateUniqueSlug($validated['title']);
@@ -85,8 +83,8 @@ class VideoController extends Controller
             'title' => $validated['title'],
             'slug' => $slug,
             'description' => $validated['description'] ?? null,
-            'video_path' => $videoPath,
-            'video_url' => Storage::disk($disk)->url($videoPath),
+            'video_path' => $videoUrl,
+            'video_url' => $videoUrl,
             'thumbnail_path' => $thumbnailPath,
             'thumbnail_url' => $thumbnailUrl,
             'mime_type' => $videoFile->getMimeType(),
@@ -140,20 +138,18 @@ class VideoController extends Controller
         ]);
     }
 
-    public function destroy(Video $video)
+    public function destroy(Video $video, VideoCDNStorage $videoCdnStorage)
     {
         if ($video->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $disk = $this->storageDisk();
-
-        if ($video->video_path) {
-            Storage::disk($disk)->delete($video->video_path);
+        if ($video->video_url) {
+            $videoCdnStorage->deleteUpload($video->video_url);
         }
 
-        if ($video->thumbnail_path) {
-            Storage::disk($disk)->delete($video->thumbnail_path);
+        if ($video->thumbnail_url) {
+            $videoCdnStorage->deleteUpload($video->thumbnail_url);
         }
 
         $video->delete();
@@ -169,34 +165,13 @@ class VideoController extends Controller
             return response()->json(['message' => 'This video is private.'], 403);
         }
 
-        $disk = $this->storageDisk();
-
-        if (! Storage::disk($disk)->exists($video->video_path)) {
+        if (empty($video->video_url)) {
             return response()->json(['message' => 'Video file not found.'], 404);
         }
 
         $video->increment('views');
 
-        if ($disk === 'azure') {
-            $stream = Storage::disk($disk)->readStream($video->video_path);
-            if (! is_resource($stream)) {
-                throw new RuntimeException('Unable to stream Azure video.');
-            }
-
-            return response()->stream(function () use ($stream) {
-                fpassthru($stream);
-                fclose($stream);
-            }, 200, [
-                'Content-Type' => $video->mime_type ?: 'video/mp4',
-                'Content-Length' => Storage::disk($disk)->size($video->video_path),
-                'Accept-Ranges' => 'bytes',
-            ]);
-        }
-
-        return response()->file(
-            Storage::disk($disk)->path($video->video_path),
-            ['Content-Type' => $video->mime_type ?: 'video/mp4']
-        );
+        return redirect()->away($video->video_url);
     }
 
     protected function generateUniqueSlug(string $title, ?int $ignoreId = null): string
