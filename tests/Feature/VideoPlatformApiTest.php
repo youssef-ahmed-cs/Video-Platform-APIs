@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\User;
 use App\Models\Video;
+use App\Notifications\NewVideoNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -161,6 +163,33 @@ class VideoPlatformApiTest extends TestCase
             'user_id' => $user->id,
             'video_url' => 'https://cdn.hackclub.com/video-from-url-1/remote.mp4',
         ]);
+    }
+
+    public function test_new_video_notifies_all_users(): void
+    {
+        config()->set('filesystems.video_disk', 'azure');
+        config()->set('services.hackcdn.key', 'test-key');
+        config()->set('services.hackcdn.host', 'https://cdn.hackclub.com');
+        Storage::fake('azure');
+        Http::fake([
+            'https://cdn.hackclub.com/api/v4/upload' => Http::response([
+                'url' => 'https://cdn.hackclub.com/video-upload-notify/file.mp4',
+            ], 200),
+        ]);
+        Notification::fake();
+
+        $admin = User::factory()->create(['is_admin' => true]);
+        $userA = User::factory()->create(['is_admin' => false]);
+        $userB = User::factory()->create(['is_admin' => false]);
+
+        $this->actingAs($admin, 'sanctum')->postJson('/api/v1/videos', [
+            'title' => 'Notify Video',
+            'video' => UploadedFile::fake()->create('notify.mp4', 1024, 'video/mp4'),
+        ])->assertStatus(201);
+
+        Notification::assertSentTo($admin, NewVideoNotification::class);
+        Notification::assertSentTo($userA, NewVideoNotification::class);
+        Notification::assertSentTo($userB, NewVideoNotification::class);
     }
 
     public function test_authenticated_user_can_comment_on_public_video(): void

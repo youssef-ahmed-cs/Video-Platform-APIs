@@ -22,5 +22,6 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::patch('/videos/{video}', [VideoController::class, 'update']);
         Route::delete('/videos/{video}', [VideoController::class, 'destroy']);
         Route::post('/videos/{video}/comments', [VideoCommentController::class, 'store']);
+        Route::get('/notifications', [VideoController::class, 'notification']);
     });
 });

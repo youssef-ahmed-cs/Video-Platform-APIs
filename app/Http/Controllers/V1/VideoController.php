@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateVideoRequest;
 use App\Http\Requests\UpdateVideoRequest;
 use App\Http\Resources\VideoResource;
+use App\Models\User;
 use App\Models\Video;
+use App\Notifications\NewVideoNotification;
 use App\Services\VideoCDNStorage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class VideoController extends Controller
@@ -103,6 +106,12 @@ class VideoController extends Controller
             $video->categories()->sync($validated['category_ids']);
         }
 
+        User::query()->chunkById(100, function ($users) use ($video) {
+            Notification::send(
+                $users,
+                new NewVideoNotification($video)
+            );
+        });
         $video->load(['categories:id,name']);
 
         return response()->json([
@@ -200,6 +209,16 @@ class VideoController extends Controller
 
         return response()->json([
             'videos' => VideoResource::collection($videos),
+        ]);
+    }
+
+    public function notification()
+    {
+        $user = auth()->user();
+        $notifications = $user->notifications()->latest()->get();
+
+        return response()->json([
+            'notifications' => $notifications,
         ]);
     }
 
