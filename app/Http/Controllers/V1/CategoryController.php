@@ -103,4 +103,20 @@ class CategoryController extends Controller
         return $slug;
     }
 
+    public function search(Request $request)
+    {
+        $query = $request->input('query');
+
+        if (!$query) {
+            return response()->json([
+                'message' => 'Query parameter is required.',
+            ], 400);
+        }
+
+        $categories = Category::search($query)->get();
+
+        return response()->json([
+            'categories' => CategoryResource::collection($categories),
+        ]);
+    }
 }

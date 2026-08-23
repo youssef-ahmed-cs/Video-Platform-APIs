@@ -186,4 +186,21 @@ class VideoController extends Controller
         return $slug;
     }
 
+    public function search(Request $request)
+    {
+        $query = $request->input('query');
+
+        if (!$query) {
+            return response()->json([
+                'message' => 'Query parameter is required.',
+            ], 400);
+        }
+
+        $videos = Video::search($query)->get();
+
+        return response()->json([
+            'videos' => VideoResource::collection($videos),
+        ]);
+    }
+
 }

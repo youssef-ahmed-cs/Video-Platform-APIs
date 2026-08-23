@@ -7,10 +7,12 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "algolia/algoliasearch-client-php": "^4.47",
         "laravel/framework": "^13.8",
         "laravel/nightwatch": "^1.28",
         "laravel/reverb": "^1.0",
         "laravel/sanctum": "^4.0",
+        "laravel/scout": "^11.5",
         "laravel/telescope": "^5.21",
         "laravel/tinker": "^3.0",
         "matthewbdaly/laravel-azure-storage": "^2.0",
