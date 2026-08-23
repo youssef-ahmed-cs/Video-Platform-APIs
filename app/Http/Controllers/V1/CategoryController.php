@@ -33,6 +33,8 @@ class CategoryController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Category::class);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -53,9 +55,7 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category)
     {
-        if ($category->user_id !== auth()->id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
+        $this->authorize('update', $category);
 
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -77,9 +77,7 @@ class CategoryController extends Controller
 
     public function destroy(Category $category)
     {
-        if ($category->user_id !== auth()->id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
+        $this->authorize('delete', $category);
 
         $category->delete();
 
@@ -104,4 +102,5 @@ class CategoryController extends Controller
 
         return $slug;
     }
+
 }

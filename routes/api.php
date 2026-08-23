@@ -1,20 +1,21 @@
 <?php
 
-use App\Http\Controllers\V1\Auth\ForgetPasswordController;
-use App\Http\Controllers\V1\Auth\UserAuthController;
-use App\Http\Controllers\V1\Auth\VerifyEmailController;
-use App\Http\Controllers\V1\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Mail\InvoicePaidMail;
 
 Route::prefix('v1')->middleware('throttle:20,1')->group(function () {
 
     Route::get('/', function () {
         return response()->json([
-            'message' => 'Welcome to the API',
+            'message' => 'Welcome to Video Platform APIs',
             'status' => 'OK - Server works'
         ]);
     });
+});
+
+Route::fallback(function () {
+    return response()->json([
+        'message' => '404 Not Found!',
+    ]);
 });
 
 Route::post('uplod-on-azure', function (\App\Services\AzureBlobStorageService $azureService) {
@@ -39,3 +40,5 @@ Route::post('uplod-on-azure', function (\App\Services\AzureBlobStorageService $a
 require __DIR__ . '/API/auth.php';
 require __DIR__ . '/API/profile.php';
 require __DIR__ . '/API/videos.php';
+require __DIR__ . '/API/categories.php';
+require __DIR__ . '/API/playlists.php';

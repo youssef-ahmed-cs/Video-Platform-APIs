@@ -21,8 +21,8 @@ class VideoResource extends JsonResource
             'video_url' => $this->video_url,
             'thumbnail_url' => $this->thumbnail_url,
             'is_public' => $this->is_public,
-            'created_at' => $this->created_at?->diffForHumans(),
-            'updated_at' => $this->updated_at?->diffForHumans(),
+            'created_at' => $this->created_at?->format('Y-m-d H:i'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i'),
         ];
     }
 }

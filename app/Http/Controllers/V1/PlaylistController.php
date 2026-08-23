@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PlayListRequest;
 use App\Http\Resources\PlaylistResource;
 use App\Models\Playlist;
 use App\Models\Video;
@@ -39,13 +40,9 @@ class PlaylistController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(PlayListRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'is_public' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $playlist = Playlist::create([
             'user_id' => auth()->id(),

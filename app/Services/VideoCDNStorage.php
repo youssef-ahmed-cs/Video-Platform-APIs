@@ -19,6 +19,30 @@ class VideoCDNStorage
         return $this->uploadFile($file, $path, $userName);
     }
 
+    public function uploadVideoFromUrl(string $sourceUrl, ?string $userName = null): string
+    {
+        $response = Http::withHeaders($this->headers())
+            ->post($this->endpoint('upload_from_url'), [
+                'url' => $sourceUrl,
+                'filename' => $this->buildFileNameFromUrl($sourceUrl, $userName),
+            ]);
+
+        if (!$response->successful()) {
+            throw new RuntimeException($this->messageFromResponse($response), $response->status());
+        }
+
+        $url = $response->json('url');
+
+        if (!is_string($url) || $url === '') {
+            Log::error('VideoCDNStorage: Invalid response from Hack Club CDN', [
+                'response' => $response->json(),
+            ]);
+            throw new RuntimeException('Hack Club CDN did not return a valid public URL.');
+        }
+
+        return $url;
+    }
+
     private function uploadFile($file, $path, ?string $userName = null): string
     {
         if (!$file instanceof UploadedFile) {
@@ -79,6 +103,20 @@ class VideoCDNStorage
         $firstName = $this->normalizeFirstName($userName);
         $extension = strtolower(pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION));
         $suffix = str_pad((string)random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
+
+        if ($extension !== '') {
+            return $firstName . '_' . $suffix . '.' . $extension;
+        }
+
+        return $firstName . '_' . $suffix;
+    }
+
+    private function buildFileNameFromUrl(string $sourceUrl, ?string $userName = null): string
+    {
+        $firstName = $this->normalizeFirstName($userName);
+        $path = parse_url($sourceUrl, PHP_URL_PATH) ?: '';
+        $extension = strtolower(pathinfo((string) $path, PATHINFO_EXTENSION));
+        $suffix = str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
 
         if ($extension !== '') {
             return $firstName . '_' . $suffix . '.' . $extension;

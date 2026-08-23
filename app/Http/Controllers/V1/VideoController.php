@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CreateVideoRequest;
+use App\Http\Requests\UpdateVideoRequest;
 use App\Http\Resources\VideoResource;
 use App\Models\Video;
 use App\Services\VideoCDNStorage;
@@ -44,7 +46,7 @@ class VideoController extends Controller
 
     public function show(Video $video)
     {
-        if (! $video->is_public && auth()->id() !== $video->user_id) {
+        if (!$video->is_public && auth()->id() !== $video->user_id) {
             return response()->json(['message' => 'This video is private.'], 403);
         }
 
@@ -55,20 +57,23 @@ class VideoController extends Controller
         ]);
     }
 
-    public function store(Request $request, VideoCDNStorage $videoCdnStorage)
+    public function store(CreateVideoRequest $request, VideoCDNStorage $videoCdnStorage)
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'video' => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/webm'],
-            'thumbnail' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp'],
-            'category_ids' => ['nullable', 'array'],
-            'category_ids.*' => ['integer', 'exists:categories,id'],
-            'is_public' => ['nullable', 'boolean'],
-        ]);
+        $this->authorize('create', Video::class);
+
+        $validated = $request->validated();
 
         $videoFile = $request->file('video');
-        $videoUrl = $videoCdnStorage->uploadVideo($videoFile, 'videos', auth()->user()?->name);
+
+        if ($videoFile) {
+            $videoUrl = $videoCdnStorage->uploadVideo($videoFile, 'videos', auth()->user()?->name);
+            $mimeType = $videoFile->getMimeType();
+            $size = $videoFile->getSize();
+        } else {
+            $videoUrl = $videoCdnStorage->uploadVideoFromUrl($validated['video_url'], auth()->user()?->name);
+            $mimeType = null;
+            $size = 0;
+        }
 
         $thumbnailPath = null;
         $thumbnailUrl = null;
@@ -88,13 +93,13 @@ class VideoController extends Controller
             'video_url' => $videoUrl,
             'thumbnail_path' => $thumbnailPath,
             'thumbnail_url' => $thumbnailUrl,
-            'mime_type' => $videoFile->getMimeType(),
-            'size' => $videoFile->getSize(),
+            'mime_type' => $mimeType,
+            'size' => $size,
             'duration' => $request->input('duration'),
             'is_public' => $validated['is_public'] ?? true,
         ]);
 
-        if (! empty($validated['category_ids'] ?? [])) {
+        if (!empty($validated['category_ids'] ?? [])) {
             $video->categories()->sync($validated['category_ids']);
         }
 
@@ -106,15 +111,11 @@ class VideoController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Video $video)
+    public function update(UpdateVideoRequest $request, Video $video)
     {
-        $validated = $request->validate([
-            'title' => ['sometimes', 'required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'is_public' => ['sometimes', 'boolean'],
-            'category_ids' => ['nullable', 'array'],
-            'category_ids.*' => ['integer', 'exists:categories,id'],
-        ]);
+        $this->authorize('update', $video);
+
+        $validated = $request->validated();
 
         if (isset($validated['title'])) {
             $validated['slug'] = $this->generateUniqueSlug($validated['title'], $video->id);
@@ -137,6 +138,8 @@ class VideoController extends Controller
 
     public function destroy(Video $video, VideoCDNStorage $videoCdnStorage)
     {
+        $this->authorize('delete', $video);
+
         if ($video->video_url) {
             $videoCdnStorage->deleteUpload($video->video_url);
         }
@@ -154,7 +157,7 @@ class VideoController extends Controller
 
     public function watch(Video $video)
     {
-        if (! $video->is_public && auth()->id() !== $video->user_id) {
+        if (!$video->is_public && auth()->id() !== $video->user_id) {
             return response()->json(['message' => 'This video is private.'], 403);
         }
 
@@ -174,9 +177,9 @@ class VideoController extends Controller
         $counter = 1;
 
         while (Video::where('slug', $slug)
-            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->when($ignoreId, fn($query) => $query->whereKeyNot($ignoreId))
             ->exists()) {
-            $slug = $base.'-'.$counter;
+            $slug = $base . '-' . $counter;
             $counter++;
         }
 

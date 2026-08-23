@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Category;
+use App\Models\Video;
+use App\Policies\CategoryPolicy;
+use App\Policies\VideoPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -28,11 +32,10 @@ class AppServiceProvider extends ServiceProvider
                 ->numbers()->letters();
         });
 
-        Gate::define('restore-user', function ($user) {
-            return $user->is_admin === true;
-        });
+        Gate::policy(Video::class, VideoPolicy::class);
+        Gate::policy(Category::class, CategoryPolicy::class);
 
-        Gate::define('manage-videos', function ($user) {
+        Gate::define('restore-user', function ($user) {
             return $user->is_admin === true;
         });
     }
