@@ -48,4 +48,9 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Playlist::class);
     }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
 }

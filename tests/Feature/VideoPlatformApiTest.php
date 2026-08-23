@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\User;
+use App\Models\Video;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -160,5 +161,54 @@ class VideoPlatformApiTest extends TestCase
             'user_id' => $user->id,
             'video_url' => 'https://cdn.hackclub.com/video-from-url-1/remote.mp4',
         ]);
+    }
+
+    public function test_authenticated_user_can_comment_on_public_video(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true]);
+        $commenter = User::factory()->create(['is_admin' => false]);
+
+        $video = Video::create([
+            'user_id' => $owner->id,
+            'title' => 'Commentable Video',
+            'slug' => 'commentable-video',
+            'description' => 'Sample',
+            'video_path' => 'https://cdn.hackclub.com/sample/video.mp4',
+            'video_url' => 'https://cdn.hackclub.com/sample/video.mp4',
+            'is_public' => true,
+        ]);
+
+        $response = $this->actingAs($commenter, 'sanctum')
+            ->postJson('/api/v1/videos/'.$video->id.'/comments', [
+                'body' => 'Great video!',
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('comment.body', 'Great video!')
+            ->assertJsonPath('comment.video_id', $video->id);
+
+        $this->assertDatabaseHas('comments', [
+            'video_id' => $video->id,
+            'user_id' => $commenter->id,
+            'body' => 'Great video!',
+        ]);
+    }
+
+    public function test_guest_cannot_comment_on_video(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true]);
+        $video = Video::create([
+            'user_id' => $owner->id,
+            'title' => 'Public Video',
+            'slug' => 'public-video',
+            'description' => 'Sample',
+            'video_path' => 'https://cdn.hackclub.com/sample/public.mp4',
+            'video_url' => 'https://cdn.hackclub.com/sample/public.mp4',
+            'is_public' => true,
+        ]);
+
+        $this->postJson('/api/v1/videos/'.$video->id.'/comments', [
+            'body' => 'I should not be able to post this.',
+        ])->assertStatus(401);
     }
 }

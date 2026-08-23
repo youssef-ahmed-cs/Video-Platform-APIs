@@ -11,8 +11,8 @@ class CreateVideoRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/webm', 'required_without:video_url', 'prohibited_with:video_url'],
-            'video_url' => ['nullable', 'url', 'starts_with:http://,https://', 'required_without:video', 'prohibited_with:video'],
+            'video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/webm', 'required_without:video_url'],
+            'video_url' => ['nullable', 'url', 'starts_with:http://,https://', 'required_without:video'],
             'thumbnail' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp'],
             'category_ids' => ['nullable', 'array'],
             'category_ids.*' => ['integer', 'exists:categories,id'],
