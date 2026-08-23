@@ -10,7 +10,6 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/videos', [VideoController::class, 'index']);
     Route::get('/videos/{video}', [VideoController::class, 'show']);
     Route::get('/videos/{video}/watch', [VideoController::class, 'watch']);
-    Route::get('/videos/{video}/comments', [VideoCommentController::class, 'index']);
     Route::get('/search/videos', [VideoController::class, 'search']);
 
     Route::middleware(['auth:sanctum'])->group(function () {
@@ -23,5 +22,6 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::delete('/videos/{video}', [VideoController::class, 'destroy']);
         Route::post('/videos/{video}/comments', [VideoCommentController::class, 'store']);
         Route::get('/notifications', [VideoController::class, 'notification']);
+        Route::get('/videos/{video}/comments', [VideoCommentController::class, 'index']);
     });
 });

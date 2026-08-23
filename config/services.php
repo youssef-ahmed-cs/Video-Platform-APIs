@@ -38,6 +38,10 @@ return [
     'hackcdn' => [
         'key' => env('CDN_STORAGE_KEY'),
         'host' => env('CDN_STORAGE_HOST', env('CDN_STORAGE_URL', 'https://cdn.hackclub.com')),
-    ]
+    ],
+
+    'hackai' => [
+        'token' => env('HACKAI_TOKEN'),
+    ],
 
 ];

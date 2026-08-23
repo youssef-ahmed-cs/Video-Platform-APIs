@@ -30,6 +30,13 @@ class VideoPlatformApiTest extends TestCase
             'https://cdn.hackclub.com/api/v4/upload/*' => Http::response([
                 'deleted' => true,
             ], 200),
+            'https://ai.hackclub.com/proxy/v1/moderations' => Http::response([
+                'results' => [[
+                    'flagged' => false,
+                    'categories' => [],
+                    'category_scores' => [],
+                ]],
+            ], 200),
         ]);
 
         $user = User::factory()->create(['is_admin' => true]);
@@ -73,6 +80,13 @@ class VideoPlatformApiTest extends TestCase
         Http::fake([
             'https://cdn.hackclub.com/api/v4/upload' => Http::response([
                 'url' => 'https://cdn.hackclub.com/video-upload-2/file.mp4',
+            ], 200),
+            'https://ai.hackclub.com/proxy/v1/moderations' => Http::response([
+                'results' => [[
+                    'flagged' => false,
+                    'categories' => [],
+                    'category_scores' => [],
+                ]],
             ], 200),
         ]);
 
@@ -146,6 +160,13 @@ class VideoPlatformApiTest extends TestCase
             'https://cdn.hackclub.com/api/v4/upload_from_url' => Http::response([
                 'url' => 'https://cdn.hackclub.com/video-from-url-1/remote.mp4',
             ], 200),
+            'https://ai.hackclub.com/proxy/v1/moderations' => Http::response([
+                'results' => [[
+                    'flagged' => false,
+                    'categories' => [],
+                    'category_scores' => [],
+                ]],
+            ], 200),
         ]);
 
         $user = User::factory()->create(['is_admin' => true]);
@@ -175,6 +196,13 @@ class VideoPlatformApiTest extends TestCase
             'https://cdn.hackclub.com/api/v4/upload' => Http::response([
                 'url' => 'https://cdn.hackclub.com/video-upload-notify/file.mp4',
             ], 200),
+            'https://ai.hackclub.com/proxy/v1/moderations' => Http::response([
+                'results' => [[
+                    'flagged' => false,
+                    'categories' => [],
+                    'category_scores' => [],
+                ]],
+            ], 200),
         ]);
         Notification::fake();
 
@@ -194,6 +222,16 @@ class VideoPlatformApiTest extends TestCase
 
     public function test_authenticated_user_can_comment_on_public_video(): void
     {
+        Http::fake([
+            'https://ai.hackclub.com/proxy/v1/moderations' => Http::response([
+                'results' => [[
+                    'flagged' => false,
+                    'categories' => [],
+                    'category_scores' => [],
+                ]],
+            ], 200),
+        ]);
+
         $owner = User::factory()->create(['is_admin' => true]);
         $commenter = User::factory()->create(['is_admin' => false]);
 
@@ -223,6 +261,80 @@ class VideoPlatformApiTest extends TestCase
         ]);
     }
 
+    public function test_video_upload_is_rejected_when_title_or_description_is_flagged(): void
+    {
+        config()->set('filesystems.video_disk', 'azure');
+        config()->set('services.hackcdn.key', 'test-key');
+        config()->set('services.hackcdn.host', 'https://cdn.hackclub.com');
+        Storage::fake('azure');
+
+        Http::fake([
+            'https://ai.hackclub.com/proxy/v1/moderations' => Http::response([
+                'results' => [[
+                    'flagged' => true,
+                    'categories' => ['hate' => true],
+                    'category_scores' => ['hate' => 0.99],
+                ]],
+            ], 200),
+        ]);
+
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/videos', [
+            'title' => 'Flagged Title',
+            'description' => 'Should be rejected by moderation.',
+            'video' => UploadedFile::fake()->create('flagged.mp4', 1024, 'video/mp4'),
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('field', 'title');
+
+        $this->assertDatabaseMissing('videos', [
+            'title' => 'Flagged Title',
+            'user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_comment_is_rejected_when_flagged_by_moderation(): void
+    {
+        Http::fake([
+            'https://ai.hackclub.com/proxy/v1/moderations' => Http::response([
+                'results' => [[
+                    'flagged' => true,
+                    'categories' => ['harassment' => true],
+                    'category_scores' => ['harassment' => 0.95],
+                ]],
+            ], 200),
+        ]);
+
+        $owner = User::factory()->create(['is_admin' => true]);
+        $commenter = User::factory()->create(['is_admin' => false]);
+
+        $video = Video::create([
+            'user_id' => $owner->id,
+            'title' => 'Public Video For Moderation',
+            'slug' => 'public-video-for-moderation',
+            'description' => 'Sample',
+            'video_path' => 'https://cdn.hackclub.com/sample/moderation.mp4',
+            'video_url' => 'https://cdn.hackclub.com/sample/moderation.mp4',
+            'is_public' => true,
+        ]);
+
+        $response = $this->actingAs($commenter, 'sanctum')
+            ->postJson('/api/v1/videos/'.$video->id.'/comments', [
+                'body' => 'Flagged comment',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('field', 'body');
+
+        $this->assertDatabaseMissing('comments', [
+            'video_id' => $video->id,
+            'user_id' => $commenter->id,
+            'body' => 'Flagged comment',
+        ]);
+    }
+
     public function test_guest_cannot_comment_on_video(): void
     {
         $owner = User::factory()->create(['is_admin' => true]);
@@ -239,5 +351,27 @@ class VideoPlatformApiTest extends TestCase
         $this->postJson('/api/v1/videos/'.$video->id.'/comments', [
             'body' => 'I should not be able to post this.',
         ])->assertStatus(401);
+    }
+
+    public function test_show_video_increases_views_by_one(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true]);
+        $video = Video::create([
+            'user_id' => $owner->id,
+            'title' => 'Views Video',
+            'slug' => 'views-video',
+            'description' => 'Sample',
+            'video_path' => 'https://cdn.hackclub.com/sample/views.mp4',
+            'video_url' => 'https://cdn.hackclub.com/sample/views.mp4',
+            'is_public' => true,
+            'views' => 0,
+        ]);
+
+        $this->getJson('/api/v1/videos/'.$video->id)->assertStatus(200);
+
+        $this->assertDatabaseHas('videos', [
+            'id' => $video->id,
+            'views' => 1,
+        ]);
     }
 }

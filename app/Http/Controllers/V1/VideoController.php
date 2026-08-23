@@ -9,6 +9,7 @@ use App\Http\Resources\VideoResource;
 use App\Models\User;
 use App\Models\Video;
 use App\Notifications\NewVideoNotification;
+use App\Services\ModerationService;
 use App\Services\VideoCDNStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -53,6 +54,7 @@ class VideoController extends Controller
             return response()->json(['message' => 'This video is private.'], 403);
         }
 
+        $video->increment('views');
         $video->load(['user:id,name,username', 'categories:id,name']);
 
         return response()->json([
@@ -60,11 +62,43 @@ class VideoController extends Controller
         ]);
     }
 
-    public function store(CreateVideoRequest $request, VideoCDNStorage $videoCdnStorage)
+    public function store(
+        CreateVideoRequest $request,
+        VideoCDNStorage $videoCdnStorage,
+        ModerationService $moderationService
+    )
     {
         $this->authorize('create', Video::class);
 
         $validated = $request->validated();
+        $moderationChecks = [
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? '',
+        ];
+
+        foreach ($moderationChecks as $field => $value) {
+            if (trim($value) === '') {
+                continue;
+            }
+
+            $moderation = $moderationService->moderateContent($value);
+
+            if (isset($moderation['error'])) {
+                return response()->json([
+                    'message' => 'Content moderation is currently unavailable.',
+                    'field' => $field,
+                    'error' => $moderation['error'],
+                ], 503);
+            }
+
+            if ($moderation['flagged'] ?? false) {
+                return response()->json([
+                    'message' => "The {$field} contains content that violates moderation policies.",
+                    'field' => $field,
+                    'moderation' => $moderation,
+                ], 422);
+            }
+        }
 
         $videoFile = $request->file('video');
 
