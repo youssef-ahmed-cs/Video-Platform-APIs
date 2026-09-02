@@ -44,17 +44,42 @@ class PlaylistController extends Controller
     {
         $validated = $request->validated();
 
+        $isSystem = auth()->user()->is_admin === true;
+
         $playlist = Playlist::create([
             'user_id' => auth()->id(),
             'name' => $validated['name'],
             'slug' => $this->generateUniqueSlug($validated['name']),
             'description' => $validated['description'] ?? null,
             'is_public' => $validated['is_public'] ?? true,
+            'is_system' => $isSystem,
         ]);
 
+        // If admin created the playlist, create a default system podcast for it
+        if ($isSystem) {
+            $title = 'System podcast for ' . $playlist->name;
+            $slug = Str::slug($title) ?: 'podcast-' . time();
+            // Ensure slug uniqueness by appending timestamp if exists
+            if (\App\Models\Podcast::where('slug', $slug)->exists()) {
+                $slug = $slug . '-' . time();
+            }
+
+            \App\Models\Podcast::create([
+                'playlist_id' => $playlist->id,
+                'user_id' => auth()->id(),
+                'title' => $title,
+                'slug' => $slug,
+                'description' => 'Automatically created system podcast for playlist: ' . $playlist->name,
+                'is_public' => true,
+            ]);
+        }
+
         return response()->json([
+            'success' => true,
             'message' => 'Playlist created successfully.',
-            'playlist' => new PlaylistResource($playlist),
+            'data' => [
+                'playlist' => new PlaylistResource($playlist),
+            ],
         ], 201);
     }
 

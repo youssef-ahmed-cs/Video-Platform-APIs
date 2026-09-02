@@ -17,10 +17,12 @@ class Playlist extends Model
         'slug',
         'description',
         'is_public',
+        'is_system',
     ];
 
     protected $casts = [
         'is_public' => 'boolean',
+        'is_system' => 'boolean',
     ];
 
     public function user(): BelongsTo
@@ -32,4 +34,10 @@ class Playlist extends Model
     {
         return $this->belongsToMany(Video::class)->withTimestamps();
     }
+
+    public function podcasts(): HasMany
+    {
+        return $this->hasMany(Podcast::class);
+    }
 }
+
