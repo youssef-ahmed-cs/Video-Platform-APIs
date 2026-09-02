@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\V1\Auth\ForgetPasswordController;
+use App\Http\Controllers\V1\Auth\RestoreDeletedAccountController;
 use App\Http\Controllers\V1\Auth\UserAuthController;
 use App\Http\Controllers\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\V1\ProfileController;
@@ -18,6 +19,12 @@ Route::prefix('v1')->middleware('throttle:20,1')->group(function () {
         Route::post('/forgot-password', 'sendOtp');
         Route::post('/verify-password', 'verifyOtp');
         Route::post('/reset-password', 'resetPassword');
+    });
+
+    Route::middleware('throttle:10,1')->controller(RestoreDeletedAccountController::class)->group(function () {
+        Route::post('/restore-account/send-otp', 'sendOtp');
+        Route::post('/restore-account/verify-otp', 'verifyOtpAndRestore');
+        Route::post('/restore-account/request-admin-activation', 'requestAdminActivation');
     });
 
     Route::post('register', [UserAuthController::class, 'register']);

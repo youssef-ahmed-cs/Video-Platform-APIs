@@ -13,7 +13,7 @@ Route::prefix('v1')->middleware('throttle:20,1')->group(function () {
             Route::delete('/profile/delete-avatar', 'removeAvatarImage');
             Route::patch('/profile', 'update');
             Route::delete('/profile/force-delete', 'deleteProfilePermanently');
-            Route::delete('/profile/soft-delete', 'softDeleteProfile');
+            Route::delete('/profile/deactivate', 'softDeleteProfile');
             Route::post('/profile/{id}/restore', 'restore');
             Route::post('/profile/change-password', 'updatePassword');
         });

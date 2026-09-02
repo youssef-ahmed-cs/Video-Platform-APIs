@@ -13,12 +13,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 #[ObservedBy([AuthObserver::class])]
 #[ObservedBy([ProfileObserver::class])]
-#[Fillable(['name', 'email', 'password', 'username', 'bio', 'avatar_url', 'is_admin'])]
+#[Fillable(['name', 'email', 'password', 'username', 'bio', 'avatar_url', 'is_admin', 'account_number'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -32,6 +33,26 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            if (! empty($user->account_number)) {
+                return;
+            }
+
+            $user->account_number = self::generateUniqueAccountNumber();
+        });
+    }
+
+    protected static function generateUniqueAccountNumber(): string
+    {
+        do {
+            $accountNumber = 'ACC-'.strtoupper(Str::random(10));
+        } while (self::withTrashed()->where('account_number', $accountNumber)->exists());
+
+        return $accountNumber;
     }
 
     public function videos()

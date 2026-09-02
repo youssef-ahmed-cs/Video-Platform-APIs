@@ -25,7 +25,7 @@ class ForgetPasswordController extends Controller
 
         Mail::to($request->email)->send(new ForgetPassOtpMail($otp));
 
-        return response()->json(['message' => 'OTP sent successfully'], 200);
+        return response()->json(['message' => 'OTP sent successfully please check your email , otp expired in 5 minutes'], 200);
     }
 
     public function verifyOtp(Request $request)

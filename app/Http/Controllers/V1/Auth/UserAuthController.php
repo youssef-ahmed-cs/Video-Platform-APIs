@@ -32,7 +32,7 @@ class UserAuthController extends Controller
             'message' => 'User Created Successfully!',
             'user' => new UserResource($user),
             'access_token' => $token,
-        ]);
+        ], 201);
     }
 
     public function login(Request $request)
