@@ -7,6 +7,7 @@ use App\Http\Requests\PlayListRequest;
 use App\Http\Resources\PlaylistResource;
 use App\Models\Playlist;
 use App\Models\Video;
+use App\Models\Podcast;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -59,12 +60,11 @@ class PlaylistController extends Controller
         if ($isSystem) {
             $title = 'System podcast for ' . $playlist->name;
             $slug = Str::slug($title) ?: 'podcast-' . time();
-            // Ensure slug uniqueness by appending timestamp if exists
-            if (\App\Models\Podcast::where('slug', $slug)->exists()) {
+            if (Podcast::where('slug', $slug)->exists()) {
                 $slug = $slug . '-' . time();
             }
 
-            \App\Models\Podcast::create([
+            Podcast::create([
                 'playlist_id' => $playlist->id,
                 'user_id' => auth()->id(),
                 'title' => $title,
