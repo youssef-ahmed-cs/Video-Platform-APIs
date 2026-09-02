@@ -10,15 +10,27 @@ use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $categories = Category::withCount('videos')
+        $perPage = (int) $request->query('per_page', 15);
+
+        $paginator = Category::withCount('videos')
             ->with('videos:id,title')
             ->latest()
-            ->get();
+            ->paginate($perPage);
 
         return response()->json([
-            'categories' => CategoryResource::collection($categories),
+            'success' => true,
+            'message' => 'Categories retrieved successfully.',
+            'data' => [
+                'categories' => CategoryResource::collection($paginator->items()),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'last_page' => $paginator->lastPage(),
+                ],
+            ],
         ]);
     }
 
@@ -27,7 +39,11 @@ class CategoryController extends Controller
         $category->load(['videos' => fn($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id())]);
 
         return response()->json([
-            'category' => new CategoryResource($category),
+            'success' => true,
+            'message' => 'Category retrieved successfully.',
+            'data' => [
+                'category' => new CategoryResource($category),
+            ],
         ]);
     }
 
@@ -48,8 +64,11 @@ class CategoryController extends Controller
         ]);
 
         return response()->json([
+            'success' => true,
             'message' => 'Category created successfully.',
-            'category' => new CategoryResource($category),
+            'data' => [
+                'category' => new CategoryResource($category),
+            ],
         ], 201);
     }
 
@@ -70,8 +89,11 @@ class CategoryController extends Controller
         $category->save();
 
         return response()->json([
+            'success' => true,
             'message' => 'Category updated successfully.',
-            'category' => new CategoryResource($category),
+            'data' => [
+                'category' => new CategoryResource($category),
+            ],
         ]);
     }
 
@@ -82,8 +104,11 @@ class CategoryController extends Controller
         $category->delete();
 
         return response()->json([
+            'success' => true,
             'message' => 'Category removed successfully.',
-            'category' => new CategoryResource($category),
+            'data' => [
+                'category' => new CategoryResource($category),
+            ],
         ]);
     }
 
@@ -109,14 +134,20 @@ class CategoryController extends Controller
 
         if (!$query) {
             return response()->json([
+                'success' => false,
                 'message' => 'Query parameter is required.',
+                'data' => null,
             ], 400);
         }
 
         $categories = Category::search($query)->get();
 
         return response()->json([
-            'categories' => CategoryResource::collection($categories),
+            'success' => true,
+            'message' => 'Search results returned.',
+            'data' => [
+                'categories' => CategoryResource::collection($categories),
+            ],
         ]);
     }
 }
