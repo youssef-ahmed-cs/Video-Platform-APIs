@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+
 class UserAuthController extends Controller
 {
     public function register(RegisterUserRequest $request)
@@ -21,8 +22,8 @@ class UserAuthController extends Controller
             'name' => $registerUserData['name'],
             'email' => $registerUserData['email'],
             'password' => Hash::make($registerUserData['password']),
-            'username' => $registerUserData['username'] ?? Str::before($registerUserData['email'], '@') . '-' . random_int(1000, 9999),
-        ]);
+            'username' => $registerUserData['username']
+                ?? str_replace('.', '_', Str::before($registerUserData['email'], '@').rand(1000, 9999)),]);
 
         $token = $user->createToken($user->name . '-AuthToken')->plainTextToken;
         Log::info('New user registered: ' . $user->email);

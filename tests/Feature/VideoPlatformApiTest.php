@@ -56,6 +56,7 @@ class VideoPlatformApiTest extends TestCase
         ]);
 
         $response->assertStatus(201)
+            ->assertJsonPath('success', true)
             ->assertJsonPath('video.title', 'Demo Movie')
             ->assertJsonPath('video.is_public', true);
 
@@ -373,5 +374,37 @@ class VideoPlatformApiTest extends TestCase
             'id' => $video->id,
             'views' => 1,
         ]);
+    }
+
+    public function test_admin_can_make_video_private(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $video = Video::create([
+            'user_id' => $admin->id,
+            'title' => 'Public To Private',
+            'slug' => 'public-to-private',
+            'description' => 'Sample',
+            'video_path' => 'https://cdn.hackclub.com/sample/private.mp4',
+            'video_url' => 'https://cdn.hackclub.com/sample/private.mp4',
+            'is_public' => true,
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->patchJson('/api/v1/videos/'.$video->id.'/private');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('video.id', $video->id)
+            ->assertJsonPath('video.is_public', false);
+
+        $this->assertDatabaseHas('videos', [
+            'id' => $video->id,
+            'is_public' => false,
+        ]);
+
+        $this->getJson('/api/v1/videos/'.$video->id)
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'This video is private.');
     }
 }

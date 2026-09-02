@@ -31,9 +31,9 @@ class VideoController extends Controller
             ->latest()
             ->get();
 
-        return response()->json([
+        return $this->successResponse([
             'videos' => VideoResource::collection($videos),
-        ]);
+        ], 'Videos fetched successfully.');
     }
 
     public function myVideos()
@@ -43,23 +43,23 @@ class VideoController extends Controller
             ->latest()
             ->get();
 
-        return response()->json([
+        return $this->successResponse([
             'videos' => VideoResource::collection($videos),
-        ]);
+        ], 'Your videos fetched successfully.');
     }
 
     public function show(Video $video)
     {
         if (!$video->is_public && auth()->id() !== $video->user_id) {
-            return response()->json(['message' => 'This video is private.'], 403);
+            return $this->errorResponse('This video is private.', 403);
         }
 
         $video->increment('views');
         $video->load(['user:id,name,username', 'categories:id,name']);
 
-        return response()->json([
+        return $this->successResponse([
             'video' => new VideoResource($video),
-        ]);
+        ], 'Video fetched successfully.');
     }
 
     public function store(
@@ -84,19 +84,17 @@ class VideoController extends Controller
             $moderation = $moderationService->moderateContent($value);
 
             if (isset($moderation['error'])) {
-                return response()->json([
-                    'message' => 'Content moderation is currently unavailable.',
+                return $this->errorResponse('Content moderation is currently unavailable.', 503, [
                     'field' => $field,
                     'error' => $moderation['error'],
-                ], 503);
+                ]);
             }
 
             if ($moderation['flagged'] ?? false) {
-                return response()->json([
-                    'message' => "The {$field} contains content that violates moderation policies.",
+                return $this->errorResponse("The {$field} contains content that violates moderation policies.", 422, [
                     'field' => $field,
                     'moderation' => $moderation,
-                ], 422);
+                ]);
             }
         }
 
@@ -148,10 +146,9 @@ class VideoController extends Controller
         });
         $video->load(['categories:id,name']);
 
-        return response()->json([
-            'message' => 'Video uploaded successfully.',
+        return $this->successResponse([
             'video' => new VideoResource($video),
-        ], 201);
+        ], 'Video uploaded successfully.', 201);
     }
 
     public function update(UpdateVideoRequest $request, Video $video)
@@ -173,10 +170,9 @@ class VideoController extends Controller
 
         $video->load(['categories:id,name']);
 
-        return response()->json([
-            'message' => 'Video updated successfully.',
+        return $this->successResponse([
             'video' => new VideoResource($video),
-        ]);
+        ], 'Video updated successfully.');
     }
 
     public function destroy(Video $video, VideoCDNStorage $videoCdnStorage)
@@ -193,19 +189,17 @@ class VideoController extends Controller
 
         $video->delete();
 
-        return response()->json([
-            'message' => 'Video removed successfully.',
-        ]);
+        return $this->successResponse([], 'Video removed successfully.');
     }
 
     public function watch(Video $video)
     {
         if (!$video->is_public && auth()->id() !== $video->user_id) {
-            return response()->json(['message' => 'This video is private.'], 403);
+            return $this->errorResponse('This video is private.', 403);
         }
 
         if (empty($video->video_url)) {
-            return response()->json(['message' => 'Video file not found.'], 404);
+            return $this->errorResponse('Video file not found.', 404);
         }
 
         $video->increment('views');
@@ -234,16 +228,14 @@ class VideoController extends Controller
         $query = $request->input('query');
 
         if (!$query) {
-            return response()->json([
-                'message' => 'Query parameter is required.',
-            ], 400);
+            return $this->errorResponse('Query parameter is required.', 400);
         }
 
         $videos = Video::search($query)->get();
 
-        return response()->json([
+        return $this->successResponse([
             'videos' => VideoResource::collection($videos),
-        ]);
+        ], 'Videos fetched successfully.');
     }
 
     public function notification()
@@ -251,9 +243,28 @@ class VideoController extends Controller
         $user = auth()->user();
         $notifications = $user->notifications()->latest()->get();
 
-        return response()->json([
+        return $this->successResponse([
             'notifications' => $notifications,
-        ]);
+        ], 'Notifications fetched successfully.');
+    }
+
+    public function makePrivate(Video $video)
+    {
+        $this->authorize('update', $video);
+
+        if (!$video->is_public) {
+            return $this->successResponse([
+                'video' => new VideoResource($video),
+            ], 'Video is already private.');
+        }
+
+        $video->is_public = false;
+        $video->save();
+        $video->load(['categories:id,name']);
+
+        return $this->successResponse([
+            'video' => new VideoResource($video),
+        ], 'Video is now private.');
     }
 
 }
