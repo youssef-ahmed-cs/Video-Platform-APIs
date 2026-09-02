@@ -42,3 +42,4 @@ require __DIR__ . '/API/profile.php';
 require __DIR__ . '/API/videos.php';
 require __DIR__ . '/API/categories.php';
 require __DIR__ . '/API/playlists.php';
+require __DIR__ . '/API/podcasts.php';
