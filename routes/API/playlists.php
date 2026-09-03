@@ -15,5 +15,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::delete('/playlists/{playlist}', [PlaylistController::class, 'destroy']);
         Route::post('/playlists/{playlist}/videos', [PlaylistController::class, 'addVideo']);
         Route::delete('/playlists/{playlist}/videos/{video}', [PlaylistController::class, 'removeVideo']);
+        Route::post('/playlists/{playlist}/podcasts', [PlaylistController::class, 'addPodcast']);
+        Route::delete('/playlists/{playlist}/podcasts/{podcast}', [PlaylistController::class, 'removePodcast']);
     });
 });

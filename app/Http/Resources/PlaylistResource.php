@@ -18,6 +18,9 @@ class PlaylistResource extends JsonResource
             'slug' => $this->slug,
             'description' => $this->description,
             'is_public' => $this->is_public,
+            'videos' => VideoResource::collection($this->whenLoaded('videos')),
+            'podcasts' => PodcastResource::collection($this->whenLoaded('podcasts')),
+            'user' => $this->whenLoaded('user'),
             'created_at' => $this->created_at?->diffForHumans(),
             'updated_at' => $this->updated_at?->diffForHumans(),
         ];

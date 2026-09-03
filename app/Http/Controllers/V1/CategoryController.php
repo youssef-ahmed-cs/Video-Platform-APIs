@@ -36,7 +36,10 @@ class CategoryController extends Controller
 
     public function show(Category $category)
     {
-        $category->load(['videos' => fn($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id())]);
+        $category->load([
+            'videos' => fn($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()),
+            'podcasts' => fn($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()),
+        ]);
 
         return response()->json([
             'success' => true,

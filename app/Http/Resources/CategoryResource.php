@@ -16,6 +16,8 @@ class CategoryResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
+            'videos' => VideoResource::collection($this->whenLoaded('videos')),
+            'podcasts' => PodcastResource::collection($this->whenLoaded('podcasts')),
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];

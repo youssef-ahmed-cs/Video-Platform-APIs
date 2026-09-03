@@ -34,7 +34,11 @@ class PlaylistController extends Controller
             return response()->json(['message' => 'This playlist is private.'], 403);
         }
 
-        $playlist->load(['videos' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()), 'user:id,name,username']);
+        $playlist->load([
+            'videos' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()),
+            'podcasts' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()),
+            'user:id,name,username',
+        ]);
 
         return response()->json([
             'playlist' => new PlaylistResource($playlist),
@@ -155,6 +159,47 @@ class PlaylistController extends Controller
         return response()->json([
             'message' => 'Video removed from playlist.',
             'playlist' => new PlaylistResource($playlist->fresh(['videos'])),
+        ]);
+    }
+
+    public function addPodcast(Request $request, Playlist $playlist)
+    {
+        if ($playlist->user_id !== auth()->id() && !auth()->user()->is_admin) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'podcast_id' => ['required', 'integer', 'exists:podcasts,id'],
+        ]);
+
+        $podcast = Podcast::findOrFail($validated['podcast_id']);
+        if ($podcast->user_id !== auth()->id() && !auth()->user()->is_admin) {
+            return response()->json(['message' => 'Only your own podcasts can be added to a playlist.'], 403);
+        }
+
+        $podcast->playlist_id = $playlist->id;
+        $podcast->save();
+
+        return response()->json([
+            'message' => 'Podcast added to playlist.',
+            'playlist' => new PlaylistResource($playlist->fresh(['videos', 'podcasts'])),
+        ]);
+    }
+
+    public function removePodcast(Playlist $playlist, Podcast $podcast)
+    {
+        if ($playlist->user_id !== auth()->id() && !auth()->user()->is_admin) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($podcast->playlist_id === $playlist->id) {
+            $podcast->playlist_id = null;
+            $podcast->save();
+        }
+
+        return response()->json([
+            'message' => 'Podcast removed from playlist.',
+            'playlist' => new PlaylistResource($playlist->fresh(['videos', 'podcasts'])),
         ]);
     }
 

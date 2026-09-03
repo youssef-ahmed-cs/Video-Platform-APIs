@@ -31,6 +31,11 @@ class Category extends Model
         return $this->belongsToMany(Video::class)->withTimestamps();
     }
 
+    public function podcasts(): BelongsToMany
+    {
+        return $this->belongsToMany(Podcast::class)->withTimestamps();
+    }
+
     public function toSearchableArray()
     {
         return [
