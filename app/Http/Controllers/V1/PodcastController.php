@@ -14,7 +14,9 @@ use App\Services\AzureBlobStorageService;
 use App\Services\ModerationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PodcastController extends Controller
@@ -121,19 +123,154 @@ class PodcastController extends Controller
         ]);
     }
 
-    public function listen(Podcast $podcast)
+    public function listen(Request $request, Podcast $podcast)
     {
+        return $this->streamPodcastAudio($podcast, $request);
+    }
+
+    public function playBySlug(Request $request, string $slug)
+    {
+        $podcast = Podcast::where('slug', $slug)->firstOrFail();
+
         if (! $podcast->is_public && auth()->id() !== $podcast->user_id && (!auth()->check() || !auth()->user()->is_admin)) {
-            return response()->json(['success' => false, 'message' => 'This podcast is private.'], 403);
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'This podcast is private.'], 403);
+            }
+            abort(403, 'This podcast is private.');
         }
 
-        if (empty($podcast->audio_url)) {
-            return response()->json(['success' => false, 'message' => 'Audio file not found.'], 404);
+        $wantsStream = $request->boolean('stream')
+            || $request->hasHeader('Range')
+            || str_starts_with($request->header('Accept', ''), 'audio/')
+            || $request->is('*/stream');
+
+        if ($wantsStream) {
+            return $this->streamPodcastAudio($podcast, $request);
+        }
+
+        if ($request->expectsJson()) {
+            $podcast->increment('views');
+            $podcast->load(['playlist:id,name,slug', 'user:id,name,username,avatar_url', 'categories:id,name,slug']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Podcast retrieved successfully.',
+                'data' => [
+                    'podcast' => new PodcastResource($podcast),
+                ],
+            ]);
+        }
+
+        $podcast->increment('views');
+        $podcast->load(['playlist:id,name,slug', 'user:id,name,username,avatar_url', 'categories:id,name,slug']);
+        $streamUrl = url('/' . $podcast->slug . '?stream=1');
+
+        return view('podcast-player', compact('podcast', 'streamUrl'));
+    }
+
+    public function streamPodcastAudio(Podcast $podcast, Request $request)
+    {
+        if (! $podcast->is_public && auth()->id() !== $podcast->user_id && (!auth()->check() || !auth()->user()->is_admin)) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'This podcast is private.'], 403);
+            }
+            abort(403, 'This podcast is private.');
+        }
+
+        $audioPath = $podcast->audio_path;
+        $audioUrl = $podcast->audio_url ?: $audioPath;
+
+        if (empty($audioUrl)) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Audio file not found.'], 404);
+            }
+            abort(404, 'Audio file not found.');
         }
 
         $podcast->increment('views');
 
-        return redirect()->away($podcast->audio_url);
+        $diskName = config('filesystems.podcast_disk', config('filesystems.video_disk', 'azure'));
+
+        if ($audioPath && !str_contains($audioPath, '://')) {
+            try {
+                if (Storage::disk($diskName)->exists($audioPath)) {
+                    return Storage::disk($diskName)->response($audioPath, null, [
+                        'Content-Type' => $podcast->mime_type ?: 'audio/mpeg',
+                        'Accept-Ranges' => 'bytes',
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                // Fall back to remote streaming
+            }
+        }
+
+        $headers = [];
+        if ($range = $request->header('Range')) {
+            $headers['Range'] = $range;
+        }
+
+        try {
+            $remote = Http::withHeaders($headers)
+                ->withOptions(['stream' => true, 'timeout' => 30])
+                ->get($audioUrl);
+
+            if (!$remote->successful() && $remote->status() !== 206) {
+                if ($request->expectsJson()) {
+                    return response()->json(['success' => false, 'message' => 'Audio stream source unavailable.'], 502);
+                }
+                abort(502, 'Audio stream source unavailable.');
+            }
+
+            $status = $remote->status();
+            $contentType = $remote->header('Content-Type') ?: ($podcast->mime_type ?: 'audio/mpeg');
+            $contentLength = $remote->header('Content-Length');
+            $contentRange = $remote->header('Content-Range');
+
+            $responseHeaders = [
+                'Content-Type' => $contentType,
+                'Accept-Ranges' => 'bytes',
+                'Cache-Control' => 'no-cache, private',
+            ];
+
+            if ($contentLength !== null) {
+                $responseHeaders['Content-Length'] = $contentLength;
+            }
+            if ($contentRange !== null) {
+                $responseHeaders['Content-Range'] = $contentRange;
+            }
+
+            return response()->stream(function () use ($remote) {
+                $body = $remote->toPsrResponse()->getBody();
+                while (!$body->eof()) {
+                    echo $body->read(1024 * 64);
+                    if (ob_get_level() > 0) {
+                        ob_flush();
+                    }
+                    flush();
+                }
+            }, $status, $responseHeaders);
+        } catch (\Throwable $e) {
+            $stream = @fopen($audioUrl, 'rb');
+            if ($stream) {
+                return response()->stream(function () use ($stream) {
+                    while (!feof($stream)) {
+                        echo fread($stream, 1024 * 64);
+                        if (ob_get_level() > 0) {
+                            ob_flush();
+                        }
+                        flush();
+                    }
+                    fclose($stream);
+                }, 200, [
+                    'Content-Type' => $podcast->mime_type ?: 'audio/mpeg',
+                    'Accept-Ranges' => 'bytes',
+                ]);
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Audio stream unavailable.'], 500);
+            }
+            abort(500, 'Audio stream unavailable.');
+        }
     }
 
     public function store(

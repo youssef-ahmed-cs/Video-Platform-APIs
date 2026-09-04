@@ -170,8 +170,15 @@ class PodcastApiTest extends TestCase
             ->assertJsonPath('data.podcast.title', 'My Private Podcast');
     }
 
-    public function test_listen_endpoint_redirects_to_audio_url_and_increments_views(): void
+    public function test_listen_endpoint_streams_audio_directly_without_redirecting_away(): void
     {
+        Http::fake([
+            'https://cdn.example.com/stream.mp3' => Http::response('fake-mp3-binary-content', 200, [
+                'Content-Type' => 'audio/mpeg',
+                'Content-Length' => '22',
+            ]),
+        ]);
+
         $user = User::factory()->create();
         $podcast = Podcast::create([
             'user_id' => $user->id,
@@ -182,14 +189,72 @@ class PodcastApiTest extends TestCase
             'views' => 5,
         ]);
 
-        $response = $this->getJson('/api/v1/podcasts/'.$podcast->id.'/listen');
+        $response = $this->get('/api/v1/podcasts/'.$podcast->id.'/listen');
 
-        $response->assertStatus(302);
-        $response->assertRedirect('https://cdn.example.com/stream.mp3');
+        $response->assertStatus(200);
+        $this->assertEquals('audio/mpeg', $response->headers->get('Content-Type'));
+        $this->assertEquals('bytes', $response->headers->get('Accept-Ranges'));
 
         $this->assertDatabaseHas('podcasts', [
             'id' => $podcast->id,
             'views' => 6,
+        ]);
+    }
+
+    public function test_slug_url_opens_podcast_player_page(): void
+    {
+        $user = User::factory()->create(['name' => 'John Podcaster']);
+        $podcast = Podcast::create([
+            'user_id' => $user->id,
+            'title' => 'My Awesome Episode',
+            'slug' => 'my-awesome-episode',
+            'description' => 'A great discussion about tech.',
+            'audio_url' => 'https://cdn.example.com/episode.mp3',
+            'is_public' => true,
+            'views' => 10,
+        ]);
+
+        $response = $this->get('/my-awesome-episode');
+
+        $response->assertStatus(200);
+        $response->assertSee('My Awesome Episode');
+        $response->assertSee('John Podcaster');
+        $response->assertSee('audio-player');
+        $response->assertSee('/my-awesome-episode?stream=1');
+
+        $this->assertDatabaseHas('podcasts', [
+            'id' => $podcast->id,
+            'views' => 11,
+        ]);
+    }
+
+    public function test_slug_url_with_stream_param_streams_audio_directly(): void
+    {
+        Http::fake([
+            'https://cdn.example.com/episode.mp3' => Http::response('direct-audio-bytes', 200, [
+                'Content-Type' => 'audio/mpeg',
+                'Content-Length' => '18',
+            ]),
+        ]);
+
+        $user = User::factory()->create();
+        $podcast = Podcast::create([
+            'user_id' => $user->id,
+            'title' => 'Direct Stream Episode',
+            'slug' => 'direct-stream-episode',
+            'audio_url' => 'https://cdn.example.com/episode.mp3',
+            'is_public' => true,
+            'views' => 0,
+        ]);
+
+        $response = $this->get('/direct-stream-episode?stream=1');
+
+        $response->assertStatus(200);
+        $this->assertEquals('audio/mpeg', $response->headers->get('Content-Type'));
+
+        $this->assertDatabaseHas('podcasts', [
+            'id' => $podcast->id,
+            'views' => 1,
         ]);
     }
 

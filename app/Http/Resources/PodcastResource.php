@@ -17,6 +17,8 @@ class PodcastResource extends JsonResource
             'description' => $this->description,
             'cover_image_url' => $this->cover_image_url,
             'audio_url' => $this->audio_url,
+            'listen_url' => url('/' . $this->slug),
+            'stream_url' => url('/' . $this->slug . '?stream=1'),
             'mime_type' => $this->mime_type,
             'size' => $this->size,
             'duration' => $this->duration,
