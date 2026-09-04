@@ -17,26 +17,26 @@ class PodcastPolicy
 
     public function view(?User $user, Podcast $podcast): bool
     {
-        return $podcast->is_public || ($user && ($podcast->user_id === $user->id || $user->is_admin));
+        return $podcast->is_public || ($user && $user->is_admin === true);
     }
 
     public function create(User $user): bool
     {
-        return true;
+        return $user->is_admin === true;
     }
 
     public function update(User $user, Podcast $podcast): bool
     {
-        return $podcast->user_id === $user->id || $user->is_admin;
+        return $user->is_admin === true;
     }
 
     public function delete(User $user, Podcast $podcast): bool
     {
-        return $podcast->user_id === $user->id || $user->is_admin;
+        return $user->is_admin === true;
     }
 
     public function upload(User $user, Podcast $podcast): bool
     {
-        return $podcast->user_id === $user->id || $user->is_admin;
+        return $user->is_admin === true;
     }
 }

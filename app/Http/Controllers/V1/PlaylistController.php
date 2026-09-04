@@ -36,7 +36,9 @@ class PlaylistController extends Controller
 
         $playlist->load([
             'videos' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()),
-            'podcasts' => fn ($query) => $query->where('is_public', true)->orWhere('user_id', auth()->id()),
+            'podcasts' => fn ($query) => auth()->check() && auth()->user()->is_admin
+                ? $query
+                : $query->where('is_public', true),
             'user:id,name,username',
         ]);
 
@@ -164,8 +166,8 @@ class PlaylistController extends Controller
 
     public function addPodcast(Request $request, Playlist $playlist)
     {
-        if ($playlist->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        if (!auth()->user()->is_admin) {
+            return response()->json(['message' => 'Unauthorized. Admin access required.'], 403);
         }
 
         $validated = $request->validate([
@@ -173,9 +175,6 @@ class PlaylistController extends Controller
         ]);
 
         $podcast = Podcast::findOrFail($validated['podcast_id']);
-        if ($podcast->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['message' => 'Only your own podcasts can be added to a playlist.'], 403);
-        }
 
         $podcast->playlist_id = $playlist->id;
         $podcast->save();
@@ -188,8 +187,8 @@ class PlaylistController extends Controller
 
     public function removePodcast(Playlist $playlist, Podcast $podcast)
     {
-        if ($playlist->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        if (!auth()->user()->is_admin) {
+            return response()->json(['message' => 'Unauthorized. Admin access required.'], 403);
         }
 
         if ($podcast->playlist_id === $playlist->id) {

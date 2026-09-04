@@ -32,9 +32,6 @@ class PodcastController extends Controller
                 }
 
                 $q->where('is_public', true);
-                if (auth()->check()) {
-                    $q->orWhere('user_id', auth()->id());
-                }
             })
             ->when($request->filled('category_id'), function ($q) use ($request) {
                 $q->whereHas('categories', function ($cq) use ($request) {
@@ -107,7 +104,7 @@ class PodcastController extends Controller
 
     public function show(Podcast $podcast): JsonResponse
     {
-        if (! $podcast->is_public && auth()->id() !== $podcast->user_id && (!auth()->check() || !auth()->user()->is_admin)) {
+        if (! $podcast->is_public && (!auth()->check() || !auth()->user()->is_admin)) {
             return response()->json(['success' => false, 'message' => 'This podcast is private.'], 403);
         }
 
@@ -132,7 +129,7 @@ class PodcastController extends Controller
     {
         $podcast = Podcast::where('slug', $slug)->firstOrFail();
 
-        if (! $podcast->is_public && auth()->id() !== $podcast->user_id && (!auth()->check() || !auth()->user()->is_admin)) {
+        if (! $podcast->is_public && (!auth()->check() || !auth()->user()->is_admin)) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => 'This podcast is private.'], 403);
             }
@@ -164,12 +161,29 @@ class PodcastController extends Controller
         $podcast->load(['playlist:id,name,slug', 'user:id,name,username,avatar_url', 'categories:id,name,slug']);
         $streamUrl = url('/' . $podcast->slug . '?stream=1');
 
-        return view('podcast-player', compact('podcast', 'streamUrl'));
+        $relatedPodcasts = Podcast::where('id', '!=', $podcast->id)
+            ->where('is_public', true)
+            ->when($podcast->playlist_id, function ($q) use ($podcast) {
+                $q->where('playlist_id', $podcast->playlist_id);
+            })
+            ->latest()
+            ->take(6)
+            ->get();
+
+        if ($relatedPodcasts->isEmpty()) {
+            $relatedPodcasts = Podcast::where('id', '!=', $podcast->id)
+                ->where('is_public', true)
+                ->latest()
+                ->take(6)
+                ->get();
+        }
+
+        return view('podcast-player', compact('podcast', 'streamUrl', 'relatedPodcasts'));
     }
 
     public function streamPodcastAudio(Podcast $podcast, Request $request)
     {
-        if (! $podcast->is_public && auth()->id() !== $podcast->user_id && (!auth()->check() || !auth()->user()->is_admin)) {
+        if (! $podcast->is_public && (!auth()->check() || !auth()->user()->is_admin)) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => 'This podcast is private.'], 403);
             }
@@ -278,6 +292,8 @@ class PodcastController extends Controller
         AzureBlobStorageService $azure,
         ModerationService $moderationService
     ): JsonResponse {
+        $this->authorize('create', Podcast::class);
+
         $validated = $request->validated();
 
         $moderationChecks = [
@@ -397,9 +413,7 @@ class PodcastController extends Controller
         AzureBlobStorageService $azure,
         ModerationService $moderationService
     ): JsonResponse {
-        if ($podcast->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
-        }
+        $this->authorize('update', $podcast);
 
         $validated = $request->validated();
 
@@ -489,9 +503,7 @@ class PodcastController extends Controller
 
     public function destroy(Podcast $podcast, AzureBlobStorageService $azure): JsonResponse
     {
-        if ($podcast->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
-        }
+        $this->authorize('delete', $podcast);
 
         if ($podcast->audio_path || $podcast->audio_url) {
             $azure->deleteFile($podcast->audio_path ?: $podcast->audio_url, 'podcasts');
@@ -508,9 +520,7 @@ class PodcastController extends Controller
 
     public function upload(Request $request, Podcast $podcast, AzureBlobStorageService $azure): JsonResponse
     {
-        if ($podcast->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
-        }
+        $this->authorize('upload', $podcast);
 
         $file = $request->file('file') ?: $request->file('audio') ?: $request->file('cover_image');
         if (! $file) {
@@ -579,9 +589,7 @@ class PodcastController extends Controller
 
     public function makePrivate(Podcast $podcast): JsonResponse
     {
-        if ($podcast->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
-        }
+        $this->authorize('update', $podcast);
 
         if (! $podcast->is_public) {
             return response()->json([
@@ -603,9 +611,7 @@ class PodcastController extends Controller
 
     public function makePublic(Podcast $podcast): JsonResponse
     {
-        if ($podcast->user_id !== auth()->id() && !auth()->user()->is_admin) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
-        }
+        $this->authorize('update', $podcast);
 
         if ($podcast->is_public) {
             return response()->json([
@@ -645,9 +651,6 @@ class PodcastController extends Controller
                 }
 
                 $query->where('is_public', true);
-                if (auth()->check()) {
-                    $query->orWhere('user_id', auth()->id());
-                }
             })
             ->latest()
             ->get();

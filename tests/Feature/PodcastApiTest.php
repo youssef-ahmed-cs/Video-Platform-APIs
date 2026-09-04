@@ -37,13 +37,13 @@ class PodcastApiTest extends TestCase
         ]);
     }
 
-    public function test_authenticated_user_can_create_podcast_with_audio_and_cover(): void
+    public function test_admin_can_create_podcast_with_audio_and_cover(): void
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $category = Category::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'name' => 'Technology',
             'slug' => 'technology',
         ]);
@@ -51,7 +51,7 @@ class PodcastApiTest extends TestCase
         $audioFile = UploadedFile::fake()->create('episode1.mp3', 2048, 'audio/mpeg');
         $coverFile = UploadedFile::fake()->image('cover.jpg', 400, 400);
 
-        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/podcasts', [
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/podcasts', [
             'title' => 'Tech Talk Episode 1',
             'description' => 'Discussion on modern software architecture.',
             'audio' => $audioFile,
@@ -72,7 +72,7 @@ class PodcastApiTest extends TestCase
 
         $this->assertDatabaseHas('podcasts', [
             'title' => 'Tech Talk Episode 1',
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'episode_number' => 1,
             'season_number' => 1,
         ]);
@@ -83,7 +83,32 @@ class PodcastApiTest extends TestCase
             'category_id' => $category->id,
         ]);
 
-        Notification::assertSentTo($user, NewPodcastNotification::class);
+        Notification::assertSentTo($admin, NewPodcastNotification::class);
+    }
+
+    public function test_regular_user_cannot_create_podcast(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/podcasts', [
+            'title' => 'Unauthorized Podcast',
+            'description' => 'A regular user attempting to create a podcast.',
+            'is_public' => true,
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertDatabaseMissing('podcasts', [
+            'title' => 'Unauthorized Podcast',
+        ]);
+    }
+
+    public function test_guest_cannot_create_podcast(): void
+    {
+        $response = $this->postJson('/api/v1/podcasts', [
+            'title' => 'Guest Podcast',
+        ]);
+
+        $response->assertStatus(401);
     }
 
     public function test_podcast_creation_is_rejected_when_content_violates_moderation(): void
@@ -98,9 +123,9 @@ class PodcastApiTest extends TestCase
             ], 200),
         ]);
 
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
 
-        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/podcasts', [
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/podcasts', [
             'title' => 'Flagged Title',
             'description' => 'Flagged description',
         ]);
@@ -115,9 +140,9 @@ class PodcastApiTest extends TestCase
 
     public function test_show_podcast_increments_views(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Listen Now',
             'slug' => 'listen-now',
             'audio_url' => 'https://example.com/audio.mp3',
@@ -138,9 +163,9 @@ class PodcastApiTest extends TestCase
 
     public function test_guest_cannot_view_private_podcast(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Secret Podcast',
             'slug' => 'secret-podcast',
             'audio_url' => 'https://example.com/secret.mp3',
@@ -153,18 +178,38 @@ class PodcastApiTest extends TestCase
             ->assertJsonPath('message', 'This podcast is private.');
     }
 
-    public function test_owner_can_view_private_podcast(): void
+    public function test_regular_user_cannot_view_private_podcast(): void
     {
-        $user = User::factory()->create();
+        $regularUser = User::factory()->create(['is_admin' => false]);
+        $admin = User::factory()->create(['is_admin' => true]);
+
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
+            'title' => 'Secret Podcast',
+            'slug' => 'secret-podcast',
+            'audio_url' => 'https://example.com/secret.mp3',
+            'is_public' => false,
+        ]);
+
+        $this->actingAs($regularUser, 'sanctum')
+            ->getJson('/api/v1/podcasts/'.$podcast->id)
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'This podcast is private.');
+    }
+
+    public function test_admin_can_view_private_podcast(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $podcast = Podcast::create([
+            'user_id' => $admin->id,
             'title' => 'My Private Podcast',
             'slug' => 'my-private-podcast',
             'audio_url' => 'https://example.com/private.mp3',
             'is_public' => false,
         ]);
 
-        $this->actingAs($user, 'sanctum')
+        $this->actingAs($admin, 'sanctum')
             ->getJson('/api/v1/podcasts/'.$podcast->id)
             ->assertStatus(200)
             ->assertJsonPath('data.podcast.title', 'My Private Podcast');
@@ -179,9 +224,9 @@ class PodcastApiTest extends TestCase
             ]),
         ]);
 
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Stream Podcast',
             'slug' => 'stream-podcast',
             'audio_url' => 'https://cdn.example.com/stream.mp3',
@@ -203,9 +248,9 @@ class PodcastApiTest extends TestCase
 
     public function test_slug_url_opens_podcast_player_page(): void
     {
-        $user = User::factory()->create(['name' => 'John Podcaster']);
+        $admin = User::factory()->create(['name' => 'John Podcaster', 'is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'My Awesome Episode',
             'slug' => 'my-awesome-episode',
             'description' => 'A great discussion about tech.',
@@ -237,9 +282,9 @@ class PodcastApiTest extends TestCase
             ]),
         ]);
 
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Direct Stream Episode',
             'slug' => 'direct-stream-episode',
             'audio_url' => 'https://cdn.example.com/episode.mp3',
@@ -258,18 +303,18 @@ class PodcastApiTest extends TestCase
         ]);
     }
 
-    public function test_owner_can_update_podcast(): void
+    public function test_admin_can_update_podcast(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Old Title',
             'slug' => 'old-title',
             'description' => 'Old Description',
             'is_public' => true,
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')->patchJson('/api/v1/podcasts/'.$podcast->id, [
+        $response = $this->actingAs($admin, 'sanctum')->patchJson('/api/v1/podcasts/'.$podcast->id, [
             'title' => 'New Title',
             'description' => 'Updated Description',
         ]);
@@ -285,35 +330,35 @@ class PodcastApiTest extends TestCase
         ]);
     }
 
-    public function test_non_owner_cannot_update_or_delete_podcast(): void
+    public function test_non_admin_cannot_update_or_delete_podcast(): void
     {
-        $owner = User::factory()->create();
-        $stranger = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $regularUser = User::factory()->create(['is_admin' => false]);
 
         $podcast = Podcast::create([
-            'user_id' => $owner->id,
-            'title' => 'Owner Podcast',
-            'slug' => 'owner-podcast',
+            'user_id' => $admin->id,
+            'title' => 'Admin Podcast',
+            'slug' => 'admin-podcast',
             'is_public' => true,
         ]);
 
-        $this->actingAs($stranger, 'sanctum')
+        $this->actingAs($regularUser, 'sanctum')
             ->patchJson('/api/v1/podcasts/'.$podcast->id, ['title' => 'Hacked'])
             ->assertStatus(403);
 
-        $this->actingAs($stranger, 'sanctum')
+        $this->actingAs($regularUser, 'sanctum')
             ->deleteJson('/api/v1/podcasts/'.$podcast->id)
             ->assertStatus(403);
     }
 
-    public function test_owner_can_delete_podcast_and_cleans_up_storage(): void
+    public function test_admin_can_delete_podcast_and_cleans_up_storage(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $audioFile = UploadedFile::fake()->create('ep.mp3', 1024, 'audio/mpeg');
         $uploadedAudioUrl = app(\App\Services\AzureBlobStorageService::class)->uploadAudio($audioFile, 'podcasts');
 
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Delete Me',
             'slug' => 'delete-me',
             'audio_path' => $uploadedAudioUrl,
@@ -321,7 +366,7 @@ class PodcastApiTest extends TestCase
             'is_public' => true,
         ]);
 
-        $this->actingAs($user, 'sanctum')
+        $this->actingAs($admin, 'sanctum')
             ->deleteJson('/api/v1/podcasts/'.$podcast->id)
             ->assertStatus(200)
             ->assertJsonPath('success', true);
@@ -331,18 +376,18 @@ class PodcastApiTest extends TestCase
         ]);
     }
 
-    public function test_owner_can_upload_media_to_podcast(): void
+    public function test_admin_can_upload_media_to_podcast(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Pending Audio',
             'slug' => 'pending-audio',
             'is_public' => true,
         ]);
 
         $audio = UploadedFile::fake()->create('audio.mp3', 2048, 'audio/mpeg');
-        $response = $this->actingAs($user, 'sanctum')
+        $response = $this->actingAs($admin, 'sanctum')
             ->postJson('/api/v1/podcasts/'.$podcast->id.'/upload', [
                 'file' => $audio,
             ]);
@@ -357,7 +402,7 @@ class PodcastApiTest extends TestCase
 
         // Test uploading cover image
         $cover = UploadedFile::fake()->image('cover.jpg', 300, 300);
-        $coverResponse = $this->actingAs($user, 'sanctum')
+        $coverResponse = $this->actingAs($admin, 'sanctum')
             ->postJson('/api/v1/podcasts/'.$podcast->id.'/upload', [
                 'file' => $cover,
             ]);
@@ -369,11 +414,30 @@ class PodcastApiTest extends TestCase
         $this->assertNotNull($podcast->cover_image_url);
     }
 
+    public function test_regular_user_cannot_upload_media_to_podcast(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $regularUser = User::factory()->create(['is_admin' => false]);
+        $podcast = Podcast::create([
+            'user_id' => $admin->id,
+            'title' => 'Pending Audio',
+            'slug' => 'pending-audio',
+            'is_public' => true,
+        ]);
+
+        $audio = UploadedFile::fake()->create('audio.mp3', 2048, 'audio/mpeg');
+        $this->actingAs($regularUser, 'sanctum')
+            ->postJson('/api/v1/podcasts/'.$podcast->id.'/upload', [
+                'file' => $audio,
+            ])
+            ->assertStatus(403);
+    }
+
     public function test_uploading_invalid_audio_type_is_rejected(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Test Podcast',
             'slug' => 'test-podcast',
             'is_public' => true,
@@ -381,7 +445,7 @@ class PodcastApiTest extends TestCase
 
         $invalidFile = UploadedFile::fake()->create('script.sh', 100, 'application/x-sh');
 
-        $this->actingAs($user, 'sanctum')
+        $this->actingAs($admin, 'sanctum')
             ->postJson('/api/v1/podcasts/'.$podcast->id.'/upload', [
                 'file' => $invalidFile,
             ])
@@ -389,17 +453,17 @@ class PodcastApiTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    public function test_owner_can_toggle_privacy(): void
+    public function test_admin_can_toggle_privacy(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Toggle Privacy',
             'slug' => 'toggle-privacy',
             'is_public' => true,
         ]);
 
-        $this->actingAs($user, 'sanctum')
+        $this->actingAs($admin, 'sanctum')
             ->patchJson('/api/v1/podcasts/'.$podcast->id.'/private')
             ->assertStatus(200)
             ->assertJsonPath('data.podcast.is_public', false);
@@ -409,7 +473,7 @@ class PodcastApiTest extends TestCase
             'is_public' => false,
         ]);
 
-        $this->actingAs($user, 'sanctum')
+        $this->actingAs($admin, 'sanctum')
             ->patchJson('/api/v1/podcasts/'.$podcast->id.'/public')
             ->assertStatus(200)
             ->assertJsonPath('data.podcast.is_public', true);
@@ -420,33 +484,53 @@ class PodcastApiTest extends TestCase
         ]);
     }
 
-    public function test_user_can_retrieve_my_podcasts(): void
+    public function test_regular_user_cannot_toggle_privacy(): void
     {
-        $user = User::factory()->create();
-        $otherUser = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $regularUser = User::factory()->create(['is_admin' => false]);
+        $podcast = Podcast::create([
+            'user_id' => $admin->id,
+            'title' => 'Toggle Privacy',
+            'slug' => 'toggle-privacy',
+            'is_public' => true,
+        ]);
+
+        $this->actingAs($regularUser, 'sanctum')
+            ->patchJson('/api/v1/podcasts/'.$podcast->id.'/private')
+            ->assertStatus(403);
+
+        $this->actingAs($regularUser, 'sanctum')
+            ->patchJson('/api/v1/podcasts/'.$podcast->id.'/public')
+            ->assertStatus(403);
+    }
+
+    public function test_admin_can_retrieve_my_podcasts(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $otherAdmin = User::factory()->create(['is_admin' => true]);
 
         Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'My First Podcast',
             'slug' => 'my-first-podcast',
             'is_public' => true,
         ]);
 
         Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'My Draft Podcast',
             'slug' => 'my-draft-podcast',
             'is_public' => false,
         ]);
 
         Podcast::create([
-            'user_id' => $otherUser->id,
+            'user_id' => $otherAdmin->id,
             'title' => 'Someone Elses Podcast',
             'slug' => 'someone-elses-podcast',
             'is_public' => true,
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')
+        $response = $this->actingAs($admin, 'sanctum')
             ->getJson('/api/v1/my-podcasts');
 
         $response->assertStatus(200)
@@ -456,10 +540,10 @@ class PodcastApiTest extends TestCase
 
     public function test_search_podcasts(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
 
         Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Artificial Intelligence Deep Dive',
             'slug' => 'ai-deep-dive',
             'description' => 'Exploring neural networks',
@@ -467,7 +551,7 @@ class PodcastApiTest extends TestCase
         ]);
 
         Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Gardening Basics',
             'slug' => 'gardening-basics',
             'description' => 'How to plant tomatoes',
@@ -481,24 +565,24 @@ class PodcastApiTest extends TestCase
             ->assertJsonPath('data.podcasts.0.title', 'Artificial Intelligence Deep Dive');
     }
 
-    public function test_user_can_add_and_remove_podcast_to_playlist(): void
+    public function test_admin_can_add_and_remove_podcast_to_playlist(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
         $playlist = Playlist::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'name' => 'Podcast Playlist',
             'slug' => 'podcast-playlist',
             'is_public' => true,
         ]);
 
         $podcast = Podcast::create([
-            'user_id' => $user->id,
+            'user_id' => $admin->id,
             'title' => 'Standalone Podcast',
             'slug' => 'standalone-podcast',
             'is_public' => true,
         ]);
 
-        $this->actingAs($user, 'sanctum')
+        $this->actingAs($admin, 'sanctum')
             ->postJson('/api/v1/playlists/'.$playlist->id.'/podcasts', [
                 'podcast_id' => $podcast->id,
             ])
@@ -508,12 +592,41 @@ class PodcastApiTest extends TestCase
         $podcast->refresh();
         $this->assertEquals($playlist->id, $podcast->playlist_id);
 
-        $this->actingAs($user, 'sanctum')
+        $this->actingAs($admin, 'sanctum')
             ->deleteJson('/api/v1/playlists/'.$playlist->id.'/podcasts/'.$podcast->id)
             ->assertStatus(200)
             ->assertJsonPath('message', 'Podcast removed from playlist.');
 
         $podcast->refresh();
         $this->assertNull($podcast->playlist_id);
+    }
+
+    public function test_regular_user_cannot_add_or_remove_podcast_to_playlist(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $regularUser = User::factory()->create(['is_admin' => false]);
+        $playlist = Playlist::create([
+            'user_id' => $regularUser->id,
+            'name' => 'User Playlist',
+            'slug' => 'user-playlist',
+            'is_public' => true,
+        ]);
+
+        $podcast = Podcast::create([
+            'user_id' => $admin->id,
+            'title' => 'Admin Podcast',
+            'slug' => 'admin-podcast',
+            'is_public' => true,
+        ]);
+
+        $this->actingAs($regularUser, 'sanctum')
+            ->postJson('/api/v1/playlists/'.$playlist->id.'/podcasts', [
+                'podcast_id' => $podcast->id,
+            ])
+            ->assertStatus(403);
+
+        $this->actingAs($regularUser, 'sanctum')
+            ->deleteJson('/api/v1/playlists/'.$playlist->id.'/podcasts/'.$podcast->id)
+            ->assertStatus(403);
     }
 }

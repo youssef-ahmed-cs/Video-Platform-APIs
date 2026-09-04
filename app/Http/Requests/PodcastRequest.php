@@ -6,9 +6,9 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class PodcastRequest extends FormRequest
 {
-    public function authorize()
+    public function authorize(): bool
     {
-        return auth()->check();
+        return auth()->check() && auth()->user()->is_admin === true;
     }
 
     public function rules()

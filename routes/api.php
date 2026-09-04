@@ -6,16 +6,15 @@ Route::prefix('v1')->middleware('throttle:20,1')->group(function () {
 
     Route::get('/', function () {
         return response()->json([
-            'message' => 'Welcome to Video Platform APIs',
-            'status' => 'OK - Server works'
+           "message" => "Welcome to the API. Please refer to the documentation for available endpoints.",
         ]);
     });
 });
 
 Route::fallback(function () {
     return response()->json([
-        'message' => '404 Not Found!',
-    ]);
+        'message' => "The requested resource was not found on this server.",
+    ], 404);
 });
 
 Route::post('uplod-on-azure', function (\App\Services\AzureBlobStorageService $azureService) {

@@ -8,7 +8,7 @@ class UpdatePodcastRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->check();
+        return auth()->check() && auth()->user()->is_admin === true;
     }
 
     public function rules(): array

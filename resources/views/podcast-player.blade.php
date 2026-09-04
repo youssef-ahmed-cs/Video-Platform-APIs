@@ -1,254 +1,297 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $podcast->title }} - LaraStream Podcast</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>{{ $podcast->title }} - {{ config('app.name', 'Laravel') }}</title>
+
+    <!-- Meta Tags -->
     <meta name="description" content="{{ Str::limit($podcast->description, 160) }}">
     <meta property="og:title" content="{{ $podcast->title }}">
     <meta property="og:description" content="{{ Str::limit($podcast->description, 160) }}">
     @if($podcast->cover_image_url)
         <meta property="og:image" content="{{ $podcast->cover_image_url }}">
     @endif
-    <meta property="og:type" content="music.song">
-    <meta property="og:audio" content="{{ $streamUrl }}">
+    <meta property="og:url" content="{{ url('/' . $podcast->slug) }}">
+
+    <!-- Fonts (Default Laravel UI Nunito) -->
+    <link rel="dns-prefetch" href="//fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=Nunito:400,600,700" rel="stylesheet">
+
+    <!-- Bootstrap 5 & Bootstrap Icons (Default Laravel UI sample) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
-            color: #f8fafc;
+            background-color: #f8fafc;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #212529;
             min-height: 100vh;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            flex-direction: column;
         }
 
-        .card {
-            background: rgba(30, 41, 59, 0.85);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            max-width: 540px;
-            width: 100%;
-            padding: 32px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            text-align: center;
-        }
-
-        .cover-wrap {
-            width: 220px;
-            height: 220px;
-            margin: 0 auto 24px;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
-            background: #334155;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .cover-wrap img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .cover-wrap svg {
-            width: 80px;
-            height: 80px;
-            fill: #94a3b8;
-        }
-
-        .badges {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-
-        .badge {
-            background: rgba(99, 102, 241, 0.2);
-            color: #a5b4fc;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            padding: 4px 12px;
-            border-radius: 9999px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        h1 {
-            font-size: 24px;
+        .navbar-brand {
             font-weight: 700;
-            margin-bottom: 8px;
-            line-height: 1.3;
-            color: #ffffff;
+            color: #0d6efd !important;
         }
 
-        .author {
-            color: #94a3b8;
-            font-size: 14px;
-            margin-bottom: 20px;
+        .podcast-cover {
+            width: 140px;
+            height: 140px;
+            object-fit: cover;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            background-color: #e9ecef;
         }
 
-        .description {
-            color: #cbd5e1;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 24px;
-            text-align: left;
-            background: rgba(15, 23, 42, 0.5);
-            padding: 14px 18px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            max-height: 120px;
-            overflow-y: auto;
-        }
-
-        .player-box {
-            background: rgba(15, 23, 42, 0.6);
-            border-radius: 16px;
-            padding: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            margin-bottom: 16px;
-        }
-
-        audio {
-            width: 100%;
-            height: 48px;
-            border-radius: 12px;
-            outline: none;
-        }
-
-        .speed-control {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .speed-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #cbd5e1;
-            font-size: 12px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .speed-btn:hover, .speed-btn.active {
-            background: #6366f1;
-            color: #ffffff;
-            border-color: #6366f1;
-        }
-
-        .meta-stats {
-            display: flex;
-            justify-content: space-around;
-            color: #94a3b8;
-            font-size: 13px;
-            padding-top: 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .meta-stats span {
+        .cover-fallback {
+            width: 140px;
+            height: 140px;
+            border-radius: 8px;
+            background-color: #e9ecef;
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            color: #6c757d;
+            font-size: 48px;
         }
 
-        .meta-stats svg {
-            width: 16px;
-            height: 16px;
-            fill: currentColor;
+        audio::-webkit-media-controls-panel {
+            background-color: #f8f9fa;
+        }
+
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1055;
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="cover-wrap">
-            @if(!empty($podcast->cover_image_url))
-                <img src="{{ $podcast->cover_image_url }}" alt="{{ $podcast->title }}">
-            @else
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 2a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V6a4 4 0 0 0-4-4zm6 10a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.93V22h2v-2.07A8 8 0 0 0 20 12h-2z"/>
-                </svg>
-            @endif
-        </div>
+    <div id="app">
+        <!-- Default Laravel UI Navbar -->
+        <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm">
+            <div class="container">
+                <a class="navbar-brand" href="{{ url('/') }}">
+                    <i class="bi bi-broadcast-pin"></i> {{ config('app.name', 'Laravel') }}
+                </a>
 
-        <div class="badges">
-            @if($podcast->season_number)
-                <span class="badge">Season {{ $podcast->season_number }}</span>
-            @endif
-            @if($podcast->episode_number)
-                <span class="badge">Episode {{ $podcast->episode_number }}</span>
-            @endif
-            @if($podcast->playlist)
-                <span class="badge">{{ $podcast->playlist->name }}</span>
-            @endif
-        </div>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
-        <h1>{{ $podcast->title }}</h1>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <!-- Left Side Of Navbar -->
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url('/') }}">
+                                <i class="bi bi-soundwave me-1"></i> Podcasts
+                            </a>
+                        </li>
+                    </ul>
 
-        @if($podcast->user)
-            <div class="author">By {{ $podcast->user->name }}</div>
-        @endif
-
-        @if(!empty($podcast->description))
-            <div class="description">{{ $podcast->description }}</div>
-        @endif
-
-        <div class="player-box">
-            <audio id="audio-player" controls preload="metadata" autoplay>
-                <source src="{{ $streamUrl }}" type="{{ $podcast->mime_type ?: 'audio/mpeg' }}">
-                Your browser does not support the audio element.
-            </audio>
-
-            <div class="speed-control">
-                <span style="font-size: 12px; color: #94a3b8; align-self: center; margin-right: 4px;">Speed:</span>
-                <button type="button" class="speed-btn active" onclick="setSpeed(1, this)">1x</button>
-                <button type="button" class="speed-btn" onclick="setSpeed(1.25, this)">1.25x</button>
-                <button type="button" class="speed-btn" onclick="setSpeed(1.5, this)">1.5x</button>
-                <button type="button" class="speed-btn" onclick="setSpeed(2, this)">2x</button>
+                    <!-- Right Side Of Navbar -->
+                    <ul class="navbar-nav ms-auto gap-2">
+                        <li class="nav-item">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyShareUrl()">
+                                <i class="bi bi-share me-1"></i> Share
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <a class="btn btn-primary btn-sm" href="{{ $streamUrl }}" target="_blank">
+                                <i class="bi bi-box-arrow-up-right me-1"></i> Direct Stream
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
-        </div>
+        </nav>
 
-        <div class="meta-stats">
-            <span>
-                <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                {{ number_format($podcast->views) }} plays
-            </span>
-            @if($podcast->duration)
-                <span>
-                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-                    {{ gmdate($podcast->duration >= 3600 ? 'H:i:s' : 'i:s', $podcast->duration) }}
-                </span>
-            @endif
+        <!-- Main Content -->
+        <main class="py-4">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8 col-md-10">
+
+                        <!-- Main Podcast Card -->
+                        <div class="card shadow-sm border-0 mb-4">
+                            <!-- Card Header -->
+                            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    @if($podcast->playlist)
+                                        <span class="badge bg-primary">{{ $podcast->playlist->name }}</span>
+                                    @endif
+                                    @if($podcast->season_number)
+                                        <span class="badge bg-secondary">Season {{ $podcast->season_number }}</span>
+                                    @endif
+                                    @if($podcast->episode_number)
+                                        <span class="badge bg-info text-dark">Episode {{ $podcast->episode_number }}</span>
+                                    @endif
+                                    @foreach($podcast->categories as $category)
+                                        <span class="badge bg-light text-dark border">{{ $category->name }}</span>
+                                    @endforeach
+                                </div>
+
+                                <span class="badge text-bg-light border">
+                                    <i class="bi bi-eye me-1"></i> {{ number_format($podcast->views) }} views
+                                </span>
+                            </div>
+
+                            <!-- Card Body -->
+                            <div class="card-body p-4">
+                                <div class="d-flex flex-column flex-sm-row gap-3 mb-4">
+                                    @if(!empty($podcast->cover_image_url))
+                                        <img src="{{ $podcast->cover_image_url }}" alt="{{ $podcast->title }}" class="podcast-cover flex-shrink-0 align-self-center align-self-sm-start">
+                                    @else
+                                        <div class="cover-fallback flex-shrink-0 align-self-center align-self-sm-start">
+                                            <i class="bi bi-mic"></i>
+                                        </div>
+                                    @endif
+
+                                    <div class="flex-grow-1">
+                                        <h2 class="card-title fw-bold text-dark mb-2">{{ $podcast->title }}</h2>
+
+                                        <p class="text-muted mb-2">
+                                            <i class="bi bi-person-circle me-1"></i> By <span class="fw-semibold text-dark">{{ $podcast->user?->name ?? 'John Podcaster' }}</span>
+                                            @if($podcast->user?->username)
+                                                <small class="text-muted">({{'@' . $podcast->user->username}})</small>
+                                            @endif
+                                        </p>
+
+                                        <p class="text-muted small mb-0">
+                                            <i class="bi bi-calendar3 me-1"></i> Released: {{ $podcast->created_at ? $podcast->created_at->format('M d, Y') : 'Recent' }}
+                                            @if($podcast->duration)
+                                                &bull; <i class="bi bi-clock me-1"></i> {{ gmdate($podcast->duration >= 3600 ? 'H:i:s' : 'i:s', $podcast->duration) }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Audio Player Box -->
+                                <div class="bg-light p-3 rounded-3 border mb-4">
+                                    <audio id="audio-player" class="w-100" controls preload="metadata" autoplay>
+                                        <source src="{{ $streamUrl }}" type="{{ $podcast->mime_type ?: 'audio/mpeg' }}">
+                                        Your browser does not support the audio element.
+                                    </audio>
+
+                                    <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-soundwave me-1"></i> Streaming from application
+                                        </small>
+
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="Playback speed">
+                                            <button type="button" class="btn btn-outline-secondary" onclick="setSpeed(0.75, this)">0.75x</button>
+                                            <button type="button" class="btn btn-outline-secondary active" onclick="setSpeed(1, this)">1x</button>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="setSpeed(1.25, this)">1.25x</button>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="setSpeed(1.5, this)">1.5x</button>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="setSpeed(2, this)">2x</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Description -->
+                                @if(!empty($podcast->description))
+                                    <h5 class="fw-bold mb-2">About This Episode</h5>
+                                    <p class="text-secondary mb-4" style="white-space: pre-line; line-height: 1.6;">{{ $podcast->description }}</p>
+                                @endif
+
+                                <!-- Actions Footer -->
+                                <div class="border-top pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyShareUrl()">
+                                        <i class="bi bi-link-45deg me-1"></i> Copy Share Link
+                                    </button>
+
+                                    <small class="text-muted">
+                                        Slug: <code>{{ $podcast->slug }}</code>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Related Episodes (Default Laravel UI List Group) -->
+                        @if(!empty($relatedPodcasts) && count($relatedPodcasts) > 0)
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                                    <h6 class="fw-bold mb-0">
+                                        <i class="bi bi-collection-play me-1"></i> More Episodes
+                                    </h6>
+                                    <span class="badge bg-secondary rounded-pill">{{ count($relatedPodcasts) }}</span>
+                                </div>
+
+                                <div class="list-group list-group-flush">
+                                    @foreach($relatedPodcasts as $item)
+                                        <a href="{{ url('/' . $item->slug) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3 {{ $item->id === $podcast->id ? 'active' : '' }}">
+                                            <div class="d-flex align-items-center gap-3">
+                                                @if(!empty($item->cover_image_url))
+                                                    <img src="{{ $item->cover_image_url }}" alt="{{ $item->title }}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 6px;">
+                                                @else
+                                                    <div style="width: 48px; height: 48px; background-color: #e9ecef; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #6c757d;">
+                                                        <i class="bi bi-mic"></i>
+                                                    </div>
+                                                @endif
+
+                                                <div>
+                                                    <h6 class="mb-1 fw-bold text-dark">{{ $item->title }}</h6>
+                                                    <small class="text-muted">{{ $item->user?->name ?? 'Creator' }} &bull; {{ number_format($item->views) }} views</small>
+                                                </div>
+                                            </div>
+
+                                            <span class="btn btn-outline-primary btn-sm rounded-pill">
+                                                <i class="bi bi-play-fill me-1"></i> Listen
+                                            </span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container toast-notification">
+        <div id="copyToast" class="toast align-items-center text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i> Link copied to clipboard!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
         </div>
     </div>
 
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
         const audio = document.getElementById('audio-player');
+
         function setSpeed(speed, btn) {
             if (audio) {
                 audio.playbackRate = speed;
-                document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+                document.querySelectorAll('.btn-group button').forEach(el => el.classList.remove('active'));
+                if (btn) btn.classList.add('active');
             }
+        }
+
+        function copyShareUrl() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                const toastEl = document.getElementById('copyToast');
+                if (toastEl) {
+                    const toast = new bootstrap.Toast(toastEl, { delay: 2500 });
+                    toast.show();
+                }
+            }).catch(() => {
+                alert('Link: ' + window.location.href);
+            });
         }
     </script>
 </body>
